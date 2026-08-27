@@ -658,6 +658,9 @@ class Avatar:
         # Flying-to-target state (click-to-focus visual confirmation)
         self._flying      = False
         self._fly_target  = (0.0, 0.0)
+        # Double-jump on the needs-input edge transition (attention grabber)
+        self._jump_queue    = 0
+        self._jump_cooldown = 0
 
     def start_fly(self, tx: float, ty: float) -> None:
         """Fly rapidly toward (tx, ty) -- the focused window's top-left
@@ -685,6 +688,13 @@ class Avatar:
 
     def update(self, floors, walls=()):
         self.aw, self.ah = self._sprite_size()
+
+        # Detected once, up top, regardless of which branch below actually
+        # runs this frame (flying/wall-climb can early-return past the
+        # normal status-transition check at the bottom of this method).
+        if self.agent.status == S.NEEDS_INPUT and self._prev_status != S.NEEDS_INPUT:
+            self._jump_queue = 2
+            self._jump_cooldown = 0
 
         # Flying overrides everything else -- gravity, walk AI, wall climb --
         # until it arrives at the target.
@@ -742,6 +752,18 @@ class Avatar:
                 if self.y + self.ah <= fy <= ny + self.ah:
                     ny, self.vy, self.on_ground = fy - self.ah, 0.0, True
                     break
+
+        # Consume the double-jump queue: one hop per ground contact, spaced
+        # out by a short cooldown so two hops actually read as two hops
+        # instead of one instantaneous velocity change.
+        if self._jump_queue > 0:
+            if self._jump_cooldown > 0:
+                self._jump_cooldown -= 1
+            elif self.on_ground:
+                self.vy = JUMP_VEL
+                self.on_ground = False
+                self._jump_queue -= 1
+                self._jump_cooldown = 6
 
         if not self.spring_mode and self.agent.status == S.NEEDS_INPUT:
             # Stop in place so a needs-input avatar is easy to click.
@@ -1003,6 +1025,8 @@ class OverlayApp:
         self._drag_av:   Optional[Avatar]      = None
         self._drag_off:  tuple[int, int]       = (0, 0)
         self._drag_prev: tuple[int, int]       = (0, 0)
+        self._press_pos: tuple[int, int]       = (0, 0)
+        self._session_picker_win = None   # separate from self._picker (skin picker)
 
         # Bindings
         self.canvas.bind("<Button-3>", self._on_right_click)
@@ -1013,7 +1037,11 @@ class OverlayApp:
         self.canvas.bind("<ButtonPress-1>",   self._on_left_press)
         self.canvas.bind("<B1-Motion>",       self._on_left_drag)
         self.canvas.bind("<ButtonRelease-1>", self._on_left_release)
-        self.canvas.bind("<Double-Button-1>", self._on_double_click)
+        # No separate double-click binding: a plain single click (see
+        # _on_left_release) now does the smart routing directly. Keeping a
+        # double-click handler too would triple-trigger it (click 1, click
+        # 2, and the synthetic double-click event all firing on the same
+        # gesture) and could stack duplicate picker windows.
 
         # HUD status window — separate, not topmost, draggable
         self._hud_win = None
@@ -1567,6 +1595,7 @@ class OverlayApp:
                 self._drag_av   = av
                 self._drag_off  = (int(event.x - av.x), int(event.y - av.y))
                 self._drag_prev = (event.x, event.y)
+                self._press_pos = (event.x, event.y)
                 self._glitches.append(GlitchFlash(
                     self.canvas, int(av.x), int(av.y), av.aw, av.ah, pink=True))
                 return
@@ -1583,16 +1612,26 @@ class OverlayApp:
         av.y = float(ny)
         self._drag_prev = (event.x, event.y)
 
+    # A press+release with barely any movement is a click, not a drag/throw.
+    CLICK_MAX_MOVE_PX = 6
+
     def _on_left_release(self, event):
         av = self._drag_av
         if av is None:
+            return
+        self._drag_av = None
+        moved = math.hypot(event.x - self._press_pos[0], event.y - self._press_pos[1])
+        if moved <= self.CLICK_MAX_MOVE_PX and av in self.avatars.values():
+            # A click (not a drag) on a program avatar: single click now
+            # does the smart routing directly -- auto-focus if exactly one
+            # session needs input, open the picker near the avatar if more.
+            self._resolve_focus_target(av.agent, near_xy=(int(av.x), int(av.y)))
             return
         dx = event.x - self._drag_prev[0]
         dy = event.y - self._drag_prev[1]
         max_v = WALK_SPEED * 3
         av.vx = max(-max_v, min(dx * THROW_SCALE, max_v))
         av.vy = max(-max_v, min(dy * THROW_SCALE, max_v))
-        self._drag_av = None
 
     def _focus_session(self, session):
         """Focus the terminal for one session, and if a window was actually
@@ -1607,7 +1646,23 @@ class OverlayApp:
             if av:
                 av.start_fly(*target_xy)
 
-    def _resolve_focus_target(self, program):
+    def _open_session_picker_near(self, program, on_pick, near_xy=None, needs_input_ids=frozenset()):
+        """Open the session picker, reusing/lifting an already-open one
+        instead of stacking duplicates (a rapid double-click or a second
+        click while it's open would otherwise spawn a second window).
+        Positioned near the clicked avatar when a position is given."""
+        if self._session_picker_win and self._session_picker_win.winfo_exists():
+            self._session_picker_win.lift()
+            return
+        win = open_session_picker(self.root, program, on_pick, needs_input_ids=needs_input_ids)
+        if near_xy is not None:
+            x, y = near_xy
+            x = max(0, min(x + 20, self.sw - 360))
+            y = max(0, min(y, self.sh - 320))
+            win.geometry(f"+{x}+{y}")
+        self._session_picker_win = win
+
+    def _resolve_focus_target(self, program, near_xy=None):
         """Route a click on a program avatar to the right session: focus
         directly if there's exactly one candidate, open a picker if there
         are several, no-op if there are none. Needs-input sessions take
@@ -1617,23 +1672,16 @@ class OverlayApp:
             self._focus_session(needy[0])
             return
         if len(needy) > 1:
-            open_session_picker(self.root, program, self._focus_session,
-                                 needs_input_ids={s.session_id for s in needy})
+            self._open_session_picker_near(program, self._focus_session, near_xy,
+                                            needs_input_ids={s.session_id for s in needy})
             return
         if len(program.sessions) == 1:
             self._focus_session(program.sessions[0])
             return
         if len(program.sessions) > 1:
-            open_session_picker(self.root, program, self._focus_session)
+            self._open_session_picker_near(program, self._focus_session, near_xy)
             return
         # 0 sessions -- nothing to focus
-
-    def _on_double_click(self, event):
-        self._drag_av = None  # cancel drag started by the first click
-        for av in list(self.avatars.values()):
-            if av.x <= event.x <= av.x + av.aw and av.y <= event.y <= av.y + av.ah:
-                self._resolve_focus_target(av.agent)
-                return
 
     # ── Right-click ───────────────────────────────────────────────────
 
@@ -1651,7 +1699,7 @@ class OverlayApp:
             if av.x <= event.x <= av.x+av.aw and av.y <= event.y <= av.y+av.ah:
                 self._glitches.append(GlitchFlash(
                     self.canvas, int(av.x), int(av.y), av.aw, av.ah, pink=False))
-                self._resolve_focus_target(av.agent)
+                self._resolve_focus_target(av.agent, near_xy=(int(av.x), int(av.y)))
                 return
         for sv in [sv for sl in self.sub_avatars.values() for sv in sl]:
             if sv.x <= event.x <= sv.x+sv.aw and sv.y <= event.y <= sv.y+sv.ah:

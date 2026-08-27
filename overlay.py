@@ -51,6 +51,22 @@ from session_picker import open_session_picker, _session_label
 VERSION = "0.5"
 
 SUBAGENT_SKIN = "amongo"
+DEBUG_FOCUS = True   # prints _focus_linked_console's window-matching diagnostics to stdout
+
+def _dbg_focus(msg: str) -> None:
+    """Print a focus-diagnostic line without ever raising -- window titles
+    can contain characters (emoji, etc.) the console's codepage can't
+    encode, and a print() crash here must never abort the real focus logic
+    that runs alongside these diagnostics."""
+    if not DEBUG_FOCUS:
+        return
+    try:
+        print(msg)
+    except Exception:
+        try:
+            print(msg.encode("ascii", "replace").decode("ascii"))
+        except Exception:
+            pass
 # Stop fires after every turn (a permission-prompt's real sequence is
 # Notification -> PreToolUse -> ... -> Stop, and PreToolUse already clears
 # needs_input) -- toasting on Stop too would spam. Flip this if you'd rather
@@ -1746,6 +1762,20 @@ class OverlayApp:
                 if has_vscode:
                     candidates |= {cpid for cpid, nm in names.items() if nm == 'code.exe'}
 
+            # explorer.exe legitimately ends up in the ancestor chain (it's
+            # cmd.exe's normal parent when launched from the desktop/Start),
+            # but it owns essentially every shell window on the desktop --
+            # File Explorer windows, "Program Manager", etc. Never treat it
+            # as a terminal candidate; the false-positive is worse than
+            # finding nothing.
+            candidates.discard(0)
+            try:
+                import psutil
+                candidates = {c for c in candidates
+                              if (psutil.Process(c).name() or '').lower() != 'explorer.exe'}
+            except Exception:
+                pass
+
             found_hwnd: list = []
             WNDENUMPROC = ctypes.WINFUNCTYPE(
                 ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
@@ -1760,6 +1790,54 @@ class OverlayApp:
 
             ctypes.windll.user32.EnumWindows(WNDENUMPROC(_cb), 0)
 
+            # Last-resort fallback: on Windows 11 with Windows Terminal set as
+            # the default terminal app, a plain console handoff means
+            # conhost.exe hosts no window of its own at all -- the real
+            # window belongs to WindowsTerminal.exe, connected via IPC with
+            # no discoverable parent/child link to the shell process tree.
+            # If nothing else matched and there's exactly one Windows
+            # Terminal window open, it's a reasonable best-effort guess.
+            # Multiple WT windows can't be disambiguated this way -- that's
+            # the same known gap as VS Code multi-window focus (Stage 2).
+            if not found_hwnd:
+                try:
+                    import psutil
+                    wt_pids = {p.info['pid'] for p in psutil.process_iter(['pid', 'name'])
+                               if (p.info['name'] or '').lower() == 'windowsterminal.exe'}
+                    wt_hwnds = []
+                    def _cb_wt(hwnd, _):
+                        wpid = ctypes.c_ulong(0)
+                        ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(wpid))
+                        if (wpid.value in wt_pids and ctypes.windll.user32.IsWindowVisible(hwnd)
+                                and ctypes.windll.user32.GetWindowTextLengthW(hwnd) > 0):
+                            wt_hwnds.append(hwnd)
+                        return True
+                    ctypes.windll.user32.EnumWindows(WNDENUMPROC(_cb_wt), 0)
+                    distinct_wt_windows = set(wt_hwnds)
+                    if len(distinct_wt_windows) == 1:
+                        found_hwnd = list(distinct_wt_windows)
+                        _dbg_focus(f"[focus] no process-tree match; falling back to the one open Windows Terminal window {found_hwnd[0]}")
+                    elif distinct_wt_windows:
+                        _dbg_focus(f"[focus] no process-tree match and {len(distinct_wt_windows)} Windows Terminal windows open -- can't disambiguate, giving up")
+                except Exception:
+                    pass
+
+            try:
+                import psutil as _dbg_psutil
+                cand_str = ", ".join(
+                    f"{c}({_dbg_psutil.Process(c).name() if _dbg_psutil.pid_exists(c) else '?'})"
+                    for c in candidates)
+            except Exception:
+                cand_str = str(candidates)
+            _dbg_focus(f"[focus] pid={pid} seed={seed} has_vscode={has_vscode} candidates={{{cand_str}}}")
+            for h in found_hwnd:
+                hp = ctypes.c_ulong(0)
+                ctypes.windll.user32.GetWindowThreadProcessId(h, ctypes.byref(hp))
+                length = ctypes.windll.user32.GetWindowTextLengthW(h)
+                buf = ctypes.create_unicode_buffer(length + 1)
+                ctypes.windll.user32.GetWindowTextW(h, buf, length + 1)
+                _dbg_focus(f"[focus]   found hwnd={h} pid={hp.value} title={buf.value!r}")
+
             if found_hwnd:
                 hwnd = found_hwnd[0]
                 if ctypes.windll.user32.IsIconic(hwnd):
@@ -1769,19 +1847,24 @@ class OverlayApp:
                 tgt_thread = ctypes.windll.user32.GetWindowThreadProcessId(hwnd, None)
                 ctypes.windll.user32.AttachThreadInput(cur_thread, tgt_thread, True)
                 ctypes.windll.user32.BringWindowToTop(hwnd)
-                ctypes.windll.user32.SetForegroundWindow(hwnd)
+                sfw_ok = ctypes.windll.user32.SetForegroundWindow(hwnd)
                 ctypes.windll.user32.AttachThreadInput(cur_thread, tgt_thread, False)
 
                 rect = ctypes.wintypes.RECT()
                 ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect))
+                fg = ctypes.windll.user32.GetForegroundWindow()
+                _dbg_focus(f"[focus] chose hwnd={hwnd} rect=({rect.left},{rect.top},{rect.right},{rect.bottom}) "
+                           f"SetForegroundWindow_ret={sfw_ok} actual_foreground_hwnd={fg} matched={fg == hwnd}")
                 # Clamp to the overlay's own screen bounds -- the real window
                 # may be on another monitor, but the fly-to animation needs a
                 # point inside the overlay's canvas to actually be visible.
                 tx = max(0, min(rect.left, self.sw - 1))
                 ty = max(0, min(rect.top, self.sh - 1))
                 return True, (tx, ty)
-        except Exception:
-            pass
+            else:
+                _dbg_focus("[focus] no matching visible window found")
+        except Exception as _dbg_e:
+            _dbg_focus(f"[focus] EXCEPTION: {type(_dbg_e).__name__}: {_dbg_e}")
         return False, None
 
     # ── Skin picker ───────────────────────────────────────────────────

@@ -90,6 +90,7 @@ WINDOW_SCAN_RATE  = 0.5
 SESSION_SCAN_RATE = 2.0
 GRAVITY           = 0.55
 WALK_SPEED        = 1.8
+FLY_SPEED         = 55    # px/frame while flying to a focused window (click-to-focus flourish)
 JUMP_VEL          = -10.0
 AVATAR_W          = 32
 AVATAR_H          = 32
@@ -638,6 +639,16 @@ class Avatar:
         self._vanish_frames  = 0
         # Set when task finishes and subagent moves to lingering list
         self._task_done_at: Optional[float] = None
+        # Flying-to-target state (click-to-focus visual confirmation)
+        self._flying      = False
+        self._fly_target  = (0.0, 0.0)
+
+    def start_fly(self, tx: float, ty: float) -> None:
+        """Fly rapidly toward (tx, ty) -- the focused window's top-left
+        corner -- as visible proof a click actually redirected somewhere.
+        Overrides normal walk AI/gravity until it arrives."""
+        self._flying = True
+        self._fly_target = (float(tx), float(ty))
 
     def _sprite_size(self):
         if self.registry:
@@ -648,6 +659,8 @@ class Avatar:
 
     @property
     def _anim_status(self) -> str:
+        if self._flying:
+            return S.BUSY   # fast-run animation while flying, regardless of underlying status
         if self.agent.status == S.NEEDS_INPUT:
             return S.NEEDS_INPUT   # explicit early return -- the idle+moving->busy rule below must never mask this
         if self.agent.status == S.IDLE and (abs(self.vx) > 0.1 or self._wall_climb is not None):
@@ -656,6 +669,26 @@ class Avatar:
 
     def update(self, floors, walls=()):
         self.aw, self.ah = self._sprite_size()
+
+        # Flying overrides everything else -- gravity, walk AI, wall climb --
+        # until it arrives at the target.
+        if self._flying:
+            dx = self._fly_target[0] - self.x
+            dy = self._fly_target[1] - self.y
+            dist = math.hypot(dx, dy)
+            if dist < 8:
+                self._flying = False
+                self._burst_requested = True   # existing per-tick burst-effect hook
+            else:
+                speed = min(dist, FLY_SPEED)
+                self.x += dx / dist * speed
+                self.y += dy / dist * speed
+                self.dir = 1 if dx >= 0 else -1
+            self.ftick += 1
+            thresh = max(1, int((OVERLAY_FPS // 8) / self.anim_speed_mult))
+            if self.ftick >= thresh:
+                self.ftick = 0; self.frame += 1
+            return
 
         # Wall climbing overrides normal gravity + walk when active
         if self._wall_climb is not None and not self.spring_mode:
@@ -936,6 +969,10 @@ class OverlayApp:
         self.canvas.pack(fill="both", expand=True)
 
         self.scanner = MultiProgramScanner()
+        # Cursor is a stub (Stage 2/3 real detection not built yet) --
+        # hidden by default so it's not just a permanently-idle avatar
+        # taking up space. Toggle via the Config screen's checkbox.
+        self._program_visible: dict[str, bool] = {"claude": True, "cursor": False}
         self.terrain = WindowTerrain(self.TITLE)
         self.avatars: dict[str, Avatar] = {}
         self.sub_avatars: dict[str, list[Avatar]] = {}   # parent_id → [sub Avatar, …]
@@ -1021,14 +1058,16 @@ class OverlayApp:
 
         # ── Main avatars ──────────────────────────────────────────────
         # Program avatars are permanent (ENABLED_PROGRAMS never shrinks at
-        # runtime), so this diff is defensive rather than the normal path --
-        # unlike the old per-session model, avatars don't pop in/out here.
-        for pid_key in self.avatars.keys() - programs.keys():
+        # runtime) EXCEPT for ones toggled off via self._program_visible
+        # (Config checkbox) -- Cursor is stub-only right now, off by default.
+        visible_ids = {pid for pid in programs.keys() if self._program_visible.get(pid, True)}
+
+        for pid_key in self.avatars.keys() - visible_ids:
             self.avatars.pop(pid_key).cleanup(self.canvas)
             for sv in self.sub_avatars.pop(pid_key, []):
                 sv.cleanup(self.canvas)
 
-        for pid_key in programs.keys() - self.avatars.keys():
+        for pid_key in visible_ids - self.avatars.keys():
             agent = programs[pid_key]
             self.avatars[pid_key] = Avatar(agent, self.sw, self.sh, self._cidx, REGISTRY)
             self._cidx += 1
@@ -1068,7 +1107,7 @@ class OverlayApp:
                                         stipple=stpl, tags="floor_line")
 
         for aid, agent in programs.items():
-            if (agent.is_demo and TEST_SUBAGENTS == 0) or agent.subagents <= 0:
+            if aid not in visible_ids or (agent.is_demo and TEST_SUBAGENTS == 0) or agent.subagents <= 0:
                 for sv in self.sub_avatars.pop(aid, []):
                     sv._task_done_at = time.time()
                     self._lingering_subs.append(sv)
@@ -1480,9 +1519,9 @@ class OverlayApp:
                                font=("Courier", 9, "bold" if needy else "normal"),
                                anchor="w", justify="left")
                 lbl.pack(fill="x", padx=4)
-                pid = session.pid
+                pid, prog_id = session.pid, session.program
                 for widget in (row, lbl):
-                    widget.bind("<Button-1>", lambda _e, p=pid: self._focus_linked_console(p))
+                    widget.bind("<Button-1>", lambda _e, p=pid, g=prog_id: self._focus_by_pid_program(p, g))
                     widget.bind("<Enter>", lambda _e, r=row: r.config(bg="#223366"))
                     widget.bind("<Leave>", lambda _e, r=row: r.config(bg=BG))
                     widget.bind("<MouseWheel>",
@@ -1539,6 +1578,19 @@ class OverlayApp:
         av.vy = max(-max_v, min(dy * THROW_SCALE, max_v))
         self._drag_av = None
 
+    def _focus_session(self, session):
+        """Focus the terminal for one session, and if a window was actually
+        found, fly that session's program avatar to its top-left corner as
+        visible proof the click did something."""
+        self._focus_by_pid_program(session.pid, session.program)
+
+    def _focus_by_pid_program(self, pid, program_id):
+        ok, target_xy = self._focus_linked_console(pid)
+        if ok:
+            av = self.avatars.get(program_id)
+            if av:
+                av.start_fly(*target_xy)
+
     def _resolve_focus_target(self, program):
         """Route a click on a program avatar to the right session: focus
         directly if there's exactly one candidate, open a picker if there
@@ -1546,19 +1598,17 @@ class OverlayApp:
         priority over the general session list."""
         needy = program.needs_input_sessions
         if len(needy) == 1:
-            self._focus_linked_console(needy[0].pid)
+            self._focus_session(needy[0])
             return
         if len(needy) > 1:
-            open_session_picker(self.root, program,
-                                 lambda s: self._focus_linked_console(s.pid),
+            open_session_picker(self.root, program, self._focus_session,
                                  needs_input_ids={s.session_id for s in needy})
             return
         if len(program.sessions) == 1:
-            self._focus_linked_console(program.sessions[0].pid)
+            self._focus_session(program.sessions[0])
             return
         if len(program.sessions) > 1:
-            open_session_picker(self.root, program,
-                                 lambda s: self._focus_linked_console(s.pid))
+            open_session_picker(self.root, program, self._focus_session)
             return
         # 0 sessions -- nothing to focus
 
@@ -1626,6 +1676,36 @@ class OverlayApp:
                             break
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
+
+                # Console-hosting processes (conhost.exe for a plain console,
+                # OpenConsole.exe under VS Code/Windows Terminal's ConPTY) are
+                # spawned as CHILDREN of the console app that allocates them,
+                # not ancestors -- Windows console architecture inverts the
+                # naive parent-walk assumption above. Without this, a session
+                # whose parent chain terminates early (detached process, or
+                # psutil.Process.parent() returning None) can never be found,
+                # because none of its ancestors own the visible window --
+                # the host process does, and it's a child.
+                host_pids = set()
+                for proc in psutil.process_iter(['pid', 'name', 'ppid']):
+                    name = (proc.info['name'] or '').lower()
+                    if name in ('conhost.exe', 'openconsole.exe') and proc.info['ppid'] in candidates:
+                        host_pids.add(proc.info['pid'])
+                candidates |= host_pids
+                # The host's own parent is often the real window owner: a
+                # plain conhost's parent is usually already in `candidates`,
+                # but OpenConsole.exe's parent under VS Code/Windows Terminal
+                # is Code.exe / WindowsTerminal.exe itself.
+                for host_pid in host_pids:
+                    try:
+                        hp = psutil.Process(host_pid).parent()
+                        if hp:
+                            candidates.add(hp.pid)
+                            if 'code' in (hp.name() or '').lower():
+                                has_vscode = True
+                    except Exception:
+                        pass
+
                 if has_vscode:
                     for proc in psutil.process_iter(['pid', 'name']):
                         if (proc.info['name'] or '').lower() == 'code.exe':
@@ -1654,6 +1734,17 @@ class OverlayApp:
                     candidates.add(p)
                     if 'code' in names.get(p, ''): has_vscode = True
                     p = parents[p]
+                # Same children-not-ancestors fix as the psutil branch above.
+                host_pids = {cpid for cpid, ppid in parents.items()
+                             if ppid in candidates and names.get(cpid, '') in ('conhost.exe', 'openconsole.exe')}
+                candidates |= host_pids
+                for host_pid in host_pids:
+                    hp = parents.get(host_pid)
+                    if hp is not None:
+                        candidates.add(hp)
+                        if 'code' in names.get(hp, ''): has_vscode = True
+                if has_vscode:
+                    candidates |= {cpid for cpid, nm in names.items() if nm == 'code.exe'}
 
             found_hwnd: list = []
             WNDENUMPROC = ctypes.WINFUNCTYPE(
@@ -1680,8 +1771,18 @@ class OverlayApp:
                 ctypes.windll.user32.BringWindowToTop(hwnd)
                 ctypes.windll.user32.SetForegroundWindow(hwnd)
                 ctypes.windll.user32.AttachThreadInput(cur_thread, tgt_thread, False)
+
+                rect = ctypes.wintypes.RECT()
+                ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect))
+                # Clamp to the overlay's own screen bounds -- the real window
+                # may be on another monitor, but the fly-to animation needs a
+                # point inside the overlay's canvas to actually be visible.
+                tx = max(0, min(rect.left, self.sw - 1))
+                ty = max(0, min(rect.top, self.sh - 1))
+                return True, (tx, ty)
         except Exception:
             pass
+        return False, None
 
     # ── Skin picker ───────────────────────────────────────────────────
 
@@ -2048,6 +2149,19 @@ class OverlayApp:
         row(tb, "Test subagents", lambda p: spinbox(p, v_tsub, 0, 8))
         row(tb, "Idle min frames",lambda p: spinbox(p, v_idlelo, 5, 200, 5))
         row(tb, "Idle max frames",lambda p: spinbox(p, v_idlehi, 5, 200, 5))
+
+        tk.Frame(tb, bg="#223366", height=1).pack(fill="x", padx=12, pady=(10, 4))
+
+        # Program avatar visibility -- takes effect immediately, no Apply
+        # button needed. Cursor defaults off (stub-only until Stage 2/3).
+        v_show_cursor = tk.BooleanVar(win, value=self._program_visible.get("cursor", False))
+        def _on_toggle_cursor():
+            self._program_visible["cursor"] = v_show_cursor.get()
+        row(tb, "Show Cursor avatar", lambda p: tk.Checkbutton(
+            p, variable=v_show_cursor, command=_on_toggle_cursor,
+            bg=BG, fg=FG, activebackground=BG, activeforeground=FG,
+            selectcolor=SEL, highlightthickness=0, bd=0, cursor="hand2"
+        ).pack(side="left"))
 
         # ── Apply button ──────────────────────────────────────────────
         tk.Frame(win, bg="#223366", height=1).pack(fill="x", padx=10, pady=4)

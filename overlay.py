@@ -46,7 +46,7 @@ from session_scanner import (
 from notify_hub import NotificationHub
 from notifications import ConsoleSink, TrayToastSink, NotificationDispatcher
 from udp_listener import UDPListener
-from session_picker import open_session_picker
+from session_picker import open_session_picker, _session_label
 
 VERSION = "0.5"
 
@@ -1357,6 +1357,37 @@ class OverlayApp:
         self._hud_status_lbl.pack(fill="x")
 
         tk.Frame(win, height=1, bg="#223366").pack(fill="x", padx=8, pady=(4, 0))
+        tk.Label(win, text="SESSIONS — click to jump to that chat", font=("Consolas", 9, "bold"),
+                 fg="#00ffee", bg=BG).pack(anchor="w", padx=12, pady=(6, 2))
+
+        # Scrollable, resizable session list. This is the piece that fills
+        # extra space when the window is resized (Sizegrip below) — it's
+        # the only packed child with expand=True.
+        sess_outer = tk.Frame(win, bg=BG)
+        sess_outer.pack(fill="both", expand=True, padx=8, pady=(0, 4))
+        sess_sb = tk.Scrollbar(sess_outer, orient="vertical", bg=SEL,
+                               troughcolor=BG, highlightthickness=0, bd=0)
+        sess_sb.pack(side="right", fill="y")
+        self._hud_sess_canvas = tk.Canvas(sess_outer, bg=BG, highlightthickness=0,
+                                          yscrollcommand=sess_sb.set)
+        self._hud_sess_canvas.pack(side="left", fill="both", expand=True)
+        sess_sb.config(command=self._hud_sess_canvas.yview)
+        self._hud_sess_frame = tk.Frame(self._hud_sess_canvas, bg=BG)
+        sess_frame_id = self._hud_sess_canvas.create_window(
+            (0, 0), window=self._hud_sess_frame, anchor="nw")
+
+        def _on_sess_inner_configure(_e):
+            self._hud_sess_canvas.configure(scrollregion=self._hud_sess_canvas.bbox("all"))
+        def _on_sess_canvas_configure(e):
+            self._hud_sess_canvas.itemconfig(sess_frame_id, width=e.width)
+        self._hud_sess_frame.bind("<Configure>", _on_sess_inner_configure)
+        self._hud_sess_canvas.bind("<Configure>", _on_sess_canvas_configure)
+        self._hud_sess_canvas.bind("<MouseWheel>",
+            lambda e: self._hud_sess_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
+
+        self._hud_session_rows: dict = {}   # session_id -> (row_frame, label)
+
+        tk.Frame(win, height=1, bg="#223366").pack(fill="x", padx=8, pady=(0, 0))
         tk.Label(win, text="HOW TO USE", font=("Consolas", 10, "bold"),
                  fg="#00ffee", bg=BG).pack(anchor="w", padx=12, pady=(6, 0))
         for line in [
@@ -1401,6 +1432,64 @@ class OverlayApp:
             return
         rows, _ = _hud_status_text(agents)
         self._hud_status_lbl.config(text="\n".join(text for text, _ in rows))
+        self._update_hud_sessions(agents)
+
+    def _update_hud_sessions(self, programs):
+        """Rebuild rows only when the live session set changes (avoids
+        recreating widgets 20x/sec); refresh text/color on existing rows
+        every call so status stays live without widget churn."""
+        BG = "#0d0d1a"; NEEDY = "#ff44dd"
+        flat = [(p, s) for p in programs.values() for s in p.sessions]
+        flat.sort(key=lambda ps: (ps[1].session_id not in
+                   {s.session_id for pr in programs.values() for s in pr.needs_input_sessions},
+                   -ps[1].last_seen))
+        current_ids = [s.session_id for _, s in flat]
+
+        for sid in list(self._hud_session_rows.keys()):
+            if sid not in current_ids:
+                row, _lbl = self._hud_session_rows.pop(sid)
+                row.destroy()
+
+        if not flat:
+            if not self._hud_session_rows:
+                if not hasattr(self, "_hud_sess_empty_lbl") or not self._hud_sess_empty_lbl.winfo_exists():
+                    self._hud_sess_empty_lbl = tk.Label(
+                        self._hud_sess_frame, text="  No active sessions.",
+                        bg=BG, fg="#556677", font=("Courier", 9))
+                    self._hud_sess_empty_lbl.pack(anchor="w")
+            return
+        elif hasattr(self, "_hud_sess_empty_lbl") and self._hud_sess_empty_lbl.winfo_exists():
+            self._hud_sess_empty_lbl.destroy()
+
+        needy_ids = {s.session_id for pr in programs.values() for s in pr.needs_input_sessions}
+
+        for program, session in flat:
+            needy = session.session_id in needy_ids
+            color = NEEDY if needy else "#aaccff"
+            text = f"  {program.name}: {_session_label(session)}"
+            if session.session_id in self._hud_session_rows:
+                row, lbl = self._hud_session_rows[session.session_id]
+                lbl.config(text=text, fg=color,
+                           font=("Courier", 9, "bold" if needy else "normal"))
+                row.pack_forget()
+                row.pack(in_=self._hud_sess_frame, fill="x")
+            else:
+                row = tk.Frame(self._hud_sess_frame, bg=BG, cursor="hand2", pady=2)
+                row.pack(fill="x")
+                lbl = tk.Label(row, text=text, bg=BG, fg=color,
+                               font=("Courier", 9, "bold" if needy else "normal"),
+                               anchor="w", justify="left")
+                lbl.pack(fill="x", padx=4)
+                pid = session.pid
+                for widget in (row, lbl):
+                    widget.bind("<Button-1>", lambda _e, p=pid: self._focus_linked_console(p))
+                    widget.bind("<Enter>", lambda _e, r=row: r.config(bg="#223366"))
+                    widget.bind("<Leave>", lambda _e, r=row: r.config(bg=BG))
+                    widget.bind("<MouseWheel>",
+                        lambda e: self._hud_sess_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
+                self._hud_session_rows[session.session_id] = (row, lbl)
+        # Every row above is re-packed (not just created) in `flat`'s sorted
+        # order (needs-input first), so this loop also handles reordering.
 
     # ── Left-click drag ───────────────────────────────────────────────
 

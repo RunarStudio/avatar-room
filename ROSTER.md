@@ -1,22 +1,28 @@
 # Avatar Roster — Curate This
 
-Every skin/character asset imported so far. Mark keep/drop per row. Nothing here is wired into code yet except the two v1 defaults.
+Every skin/character asset imported so far. Mark keep/drop per row.
 
-## Assigned (v1 defaults)
+## Wired (Stage 1)
 
 | Skin | Assigned to | Source | Status |
 |---|---|---|---|
-| `caine` | **Claude avatar** | `Sprites/caine.png` (auto-extracted from `Images/char_caine.png`) | Wired in `zz_cli_avatars`, carries over as-is |
-| `bubble` | **Cursor avatar** | `Sprites/bubble.png` (auto-extracted from `Images/char_Bubble.png`) | Wired in `zz_cli_avatars`, carries over as-is |
+| `caine` | **Claude avatar** | `Sprites/caine.png` (auto-extracted from `Images/char_caine.png`) | Wired |
+| `bubble` | **Cursor avatar** | `Sprites/bubble.png` (auto-extracted from `Images/char_Bubble.png`) | Wired |
+| `amongo` | **Subagent avatar** (`SUBAGENT_SKIN` in `overlay.py`) | `Sprites/amongo.png` (auto-extracted from `Images/Amongo Cat.png`) | Wired |
 
 ## Ready to use, unassigned
 
 | Skin | Source | Cell size | Keep? |
 |---|---|---|---|
-| `amongo` | `Sprites/amongo.png` (from `Images/char_cc.png` — Amongo Cat) | 40×40 | |
 | `meowatar` | `Sprites/meowatar.png` | 60×50 | |
 | `michimaru` | `Sprites/Michimaru.png` | 40×51 | |
 | `ponmi` | `Sprites/ponmi.png` | 48×48 | |
+
+## Unidentified, copied but unused
+
+| File | Note |
+|---|---|
+| `Images/char_cc.png` | Copied early on a wrong guess that it was Amongo's source (it's actually `Images/Amongo Cat.png` — now also copied and correctly wired above). Not currently referenced by any extractor. Keep if you recognize the character, otherwise safe to delete. |
 
 ## Referenced but missing on disk
 
@@ -44,4 +50,4 @@ Copied as-is: `meowatar_preview/`, `ponmi_preview/` — animation reference GIFs
 
 ---
 
-Once curated, tell me keep/drop per row and I'll wire the kept ones into `sprite_loader.py`'s `_load_sprites()` the same way `caine`/`bubble`/`amongo` already are.
+Once curated, tell me keep/drop per row and I'll wire the kept ones the same way `caine`/`bubble`/`amongo` already are.

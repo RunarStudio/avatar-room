@@ -1,26 +1,29 @@
 #!/usr/bin/env python3
 """
-AI Agent Desktop Overlay — v0.4
+AI Avatar Room — v0.5
 =================================
-Transparent always-on-top overlay that renders pixel avatars for
-active AI agents and lets them walk on window-top edges as terrain.
+Transparent always-on-top overlay that renders one pixel avatar per AI
+coding program (Claude Code, later Cursor) and lets them walk on
+window-top edges as terrain. Forked from zz_cli_avatars.
 
-v0.4 additions:
-  - Caine stick-figure sprite sheet (auto-generated at startup)
-  - No session → single idle Caine avatar instead of 4 demo agents
-  - Subagent avatars: spawn Caine stick figures for each active subagent
-  - Elastic spring line connecting main agent to its subagents
-  - Subagent avatars dangle from spring physics, not walk AI
+v0.5 changes (AI Avatar Room Stage 1):
+  - One avatar per PROGRAM, not per session -- MultiProgramScanner rolls
+    every active session of a program up into one avatar (session_scanner.py)
+  - UDP listener on 127.0.0.1:47200 consumes real-time hook events
+    (udp_listener.py / notify_hub.py) instead of only 2s polling
+  - NEEDS_INPUT status + Windows toast notification when an agent needs you
+  - Session picker when a program has >1 session and >1 needs input
+  - Cursor support is a stub for Stage 1 (see session_scanner.CursorScanner)
 
 Dependencies:
-    pip install pillow pywinctl numpy
+    pip install pillow pywinctl numpy psutil pystray
 
 Run:
     python overlay.py
 
 Controls:
     Drag HUD panel        → reposition info box
-    Right-click avatar    → focus your terminal window
+    Double/right-click avatar → focus the session that needs you (or picker)
     Right-click empty     → quit
     ESC                   → quit
 """
@@ -32,13 +35,27 @@ import threading
 import time
 import math
 import random
-import json
 import traceback
 from dataclasses import dataclass, field
 from typing import Optional
 from pathlib import Path
 
-VERSION = "0.4"
+from session_scanner import (
+    S, STATUS_COLOR, MultiProgramScanner, PROGRAM_SKINS, ENABLED_PROGRAMS,
+)
+from notify_hub import NotificationHub
+from notifications import ConsoleSink, TrayToastSink, NotificationDispatcher
+from udp_listener import UDPListener
+from session_picker import open_session_picker
+
+VERSION = "0.5"
+
+SUBAGENT_SKIN = "amongo"
+# Stop fires after every turn (a permission-prompt's real sequence is
+# Notification -> PreToolUse -> ... -> Stop, and PreToolUse already clears
+# needs_input) -- toasting on Stop too would spam. Flip this if you'd rather
+# be pinged on "your turn" generally.
+TOAST_ON_STOP = False
 
 try:
     import pywinctl as pwc
@@ -102,9 +119,6 @@ BODY_COLORS = [
 
 SPRITES_DIR = Path(__file__).parent / "Sprites"
 
-# Skin cycling order for real sessions (index 0 = first real session)
-REAL_SESSION_SKINS = ["caine", "meowatar", "amongo", "michimaru"]
-
 
 # ═══════════════════════════════════════════════════════════════
 #  CAINE STICK-FIGURE SPRITE SHEET GENERATOR
@@ -131,7 +145,9 @@ def _extract_bubble_sheet(path: Path) -> None:
         print("[sprites] Pillow required to extract bubble.png")
         return
 
-    src_path = Path(__file__).parent.parent / "Images" / "char_Bubble.png"
+    src_path = Path(__file__).parent / "Images" / "char_Bubble.png"
+    if not src_path.exists():
+        src_path = Path(__file__).parent.parent / "Images" / "char_Bubble.png"
     if not src_path.exists():
         print(f"[sprites] WARN: source not found at {src_path} — skipping bubble.png")
         return
@@ -186,7 +202,9 @@ def _extract_caine_sheet(path: Path) -> None:
         print("[sprites] Pillow required to extract caine.png")
         return
 
-    src_path = Path(__file__).parent.parent / "Images" / "char_caine.png"
+    src_path = Path(__file__).parent / "Images" / "char_caine.png"
+    if not src_path.exists():
+        src_path = Path(__file__).parent.parent / "Images" / "char_caine.png"
     if not src_path.exists():
         print(f"[sprites] WARN: source not found at {src_path} — skipping caine.png")
         return
@@ -239,7 +257,9 @@ def _extract_amongo_sheet(path: Path) -> None:
         print("[sprites] Pillow required to extract amongo.png")
         return
 
-    src_path = Path(__file__).parent.parent / "Images" / "Amongo Cat.png"
+    src_path = Path(__file__).parent / "Images" / "Amongo Cat.png"
+    if not src_path.exists():
+        src_path = Path(__file__).parent.parent / "Images" / "Amongo Cat.png"
     if not src_path.exists():
         print(f"[sprites] WARN: source not found at {src_path} — skipping amongo.png")
         return
@@ -377,23 +397,10 @@ def _startup_report(registry) -> None:
 # ═══════════════════════════════════════════════════════════════
 #  AGENT STATE
 # ═══════════════════════════════════════════════════════════════
-
-class S:
-    IDLE     = "idle"
-    THINKING = "thinking"
-    BUSY     = "busy"
-    SUBAGENT = "subagent"
-    ERROR    = "error"
-    DONE     = "done"
-
-STATUS_COLOR = {
-    S.IDLE:     "#44ff88",
-    S.THINKING: "#ffdd44",
-    S.BUSY:     "#ff8844",
-    S.SUBAGENT: "#aa44ff",
-    S.ERROR:    "#ff4444",
-    S.DONE:     "#44aaff",
-}
+# S / STATUS_COLOR now live in session_scanner.py (imported above) so they
+# can be shared with ClaudeCodeScanner/CursorScanner without a circular
+# import. AgentInfo stays here -- it's still used for subagent avatars,
+# which ProgramInfo doesn't model.
 
 @dataclass
 class AgentInfo:
@@ -591,7 +598,7 @@ def _sample_sprite_colors(registry, skin: str, n=3) -> list[str]:
 # ═══════════════════════════════════════════════════════════════
 
 class Avatar:
-    def __init__(self, agent: AgentInfo, sw, sh, color_idx,
+    def __init__(self, agent, sw, sh, color_idx,
                  registry: Optional["SpriteRegistry"] = None,
                  spring_mode: bool = False):
         self.agent      = agent
@@ -611,6 +618,7 @@ class Avatar:
         self.idle_t     = 0
         self.spr_id     = None
         self.lbl_id     = None
+        self.alert_id   = None
         self._photo     = None
         self._spr_mode  = "none"
         self._prev_status    = agent.status
@@ -640,6 +648,8 @@ class Avatar:
 
     @property
     def _anim_status(self) -> str:
+        if self.agent.status == S.NEEDS_INPUT:
+            return S.NEEDS_INPUT   # explicit early return -- the idle+moving->busy rule below must never mask this
         if self.agent.status == S.IDLE and (abs(self.vx) > 0.1 or self._wall_climb is not None):
             return S.BUSY
         return self.agent.status
@@ -684,7 +694,10 @@ class Avatar:
                     ny, self.vy, self.on_ground = fy - self.ah, 0.0, True
                     break
 
-        if not self.spring_mode:
+        if not self.spring_mode and self.agent.status == S.NEEDS_INPUT:
+            # Stop in place so a needs-input avatar is easy to click.
+            self.vx = 0.0
+        elif not self.spring_mode:
             # Normal walk AI
             if self.agent.status == S.THINKING and self.on_ground and random.random() < 0.04:
                 self.vy = JUMP_VEL * 0.5
@@ -763,8 +776,7 @@ class Avatar:
         if self.spring_mode:
             label = self.agent.name
         else:
-            pfx   = "[D] " if self.agent.is_demo else ""
-            parts = [f"{pfx}{self.agent.name}", self.agent.status]
+            parts = [self.agent.name, self.agent.status]
             if self.agent.tool:
                 parts.append(f"→{self.agent.tool[:10]}")
             if self.agent.subagents > 0:
@@ -783,130 +795,24 @@ class Avatar:
                 fill="#7799cc" if (self.agent.is_demo or self.spring_mode) else "white",
                 justify="center")
 
+        # Blinking "!" marker while the agent needs input -- not GlitchFlash,
+        # which captures its position once at construction and never tracks
+        # a moving avatar.
+        if self.agent.status == S.NEEDS_INPUT and (self.frame // 4) % 2 == 0:
+            ax, ay = px + self.aw // 2, py - 30
+            if self.alert_id:
+                canvas.coords(self.alert_id, ax, ay)
+            else:
+                self.alert_id = canvas.create_text(
+                    ax, ay, text="!", font=("Courier", 16, "bold"),
+                    fill=STATUS_COLOR[S.NEEDS_INPUT])
+        elif self.alert_id:
+            canvas.delete(self.alert_id)
+            self.alert_id = None
+
     def cleanup(self, canvas):
-        for iid in [self.spr_id, self.lbl_id]:
+        for iid in [self.spr_id, self.lbl_id, self.alert_id]:
             if iid: canvas.delete(iid)
-
-
-# ═══════════════════════════════════════════════════════════════
-#  SESSION SCANNER
-# ═══════════════════════════════════════════════════════════════
-
-class SessionScanner:
-    CLAUDE_DIR = Path.home() / ".claude" / "projects"
-
-    def __init__(self):
-        self._agents: dict[str,AgentInfo] = {}
-        self._lock    = threading.Lock()
-        self._tick    = 0
-        self._skin_idx = 0   # cycles through REAL_SESSION_SKINS for new sessions
-
-    def get_agents(self):
-        with self._lock: return dict(self._agents)
-
-    def loop(self):
-        while True: self._scan(); time.sleep(SESSION_SCAN_RATE)
-
-    def _scan(self):
-        self._tick += 1
-        found: dict[str, AgentInfo] = {}
-
-        if self.CLAUDE_DIR.exists():
-            for f in self.CLAUDE_DIR.glob("*/*.jsonl"):
-                try:
-                    if time.time() - f.stat().st_mtime > 28800:  # 8 hours
-                        continue
-                    aid = f.stem[:8]                          # session UUID → 1 avatar per session
-                    status, tool = self._parse_tail(f)
-                    sub_dir = f.parent / f.stem / "subagents"
-                    if sub_dir.exists():
-                        cutoff = time.time() - 1800
-                        subs = sum(1 for sf in sub_dir.glob("*.jsonl")
-                                   if sf.stat().st_mtime > cutoff)
-                    else:
-                        subs = 0
-                    found[aid] = AgentInfo(
-                        agent_id=aid,
-                        name=f"Claude-{aid[:4]}",
-                        status=status, tool=tool, subagents=subs,
-                        last_seen=f.stat().st_mtime,
-                        skin="__new__", is_demo=False,
-                        workspace_hash=f.parent.name)
-                except Exception:
-                    pass
-
-        # No real sessions → single idle demo avatar (hue assigned at spawn)
-        if not found:
-            found["demo"] = AgentInfo(
-                agent_id="demo", name="Caine",
-                status=S.IDLE, skin="amongo",
-                subagents=TEST_SUBAGENTS, is_demo=True)
-
-        self._match_pids(found)
-
-        # Drop real sessions with no live process — avoids ghost avatars from closed sessions
-        live = {aid: ai for aid, ai in found.items() if ai.is_demo or ai.pid}
-        if live:
-            found = live
-
-        with self._lock:
-            for aid, new_a in found.items():
-                old = self._agents.get(aid)
-                if old and not old.is_demo and not new_a.is_demo:
-                    new_a.skin = old.skin   # preserve existing skin across scans
-                    if old.pid:
-                        new_a.pid = old.pid
-                elif not new_a.is_demo and new_a.skin == "__new__":
-                    new_a.skin = REAL_SESSION_SKINS[self._skin_idx % len(REAL_SESSION_SKINS)]
-                    self._skin_idx += 1
-            self._agents = found
-
-    def _match_pids(self, found: dict):
-        import re
-        hash_of = lambda p: re.sub(r'[^a-zA-Z0-9]', '-', str(p).lower())
-        try:
-            import psutil
-            for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'cwd']):
-                try:
-                    name = (proc.info['name'] or '').lower()
-                    cmdline = ' '.join(proc.info['cmdline'] or []).lower()
-                    if 'node' not in name and 'claude' not in name:
-                        continue
-                    if 'claude' not in cmdline:
-                        continue
-                    cwd = proc.info['cwd']
-                    if not cwd:
-                        continue
-                    h = hash_of(cwd)
-                    for ai in found.values():
-                        if ai.workspace_hash and ai.workspace_hash.lower() == h:
-                            ai.pid = proc.info['pid']  # all sessions in same workspace share pid
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
-        except Exception:
-            pass
-
-    def _parse_tail(self, path) -> tuple[str, str]:
-        try:
-            with open(path, "rb") as f:
-                size = f.seek(0, 2)
-                f.seek(max(0, size - 4096))
-                lines = f.read().decode("utf-8", errors="ignore").splitlines()
-            for line in reversed(lines[-30:]):
-                if '"tool_use"' in line:
-                    try:
-                        obj = json.loads(line)
-                        for block in obj.get("message", {}).get("content", []):
-                            if isinstance(block, dict) and block.get("type") == "tool_use":
-                                return S.BUSY, block.get("name", "")
-                    except Exception:
-                        pass
-                    return S.BUSY, ""
-                if '"thinking"' in line:
-                    return S.THINKING, ""
-        except Exception:
-            pass
-        return S.IDLE, ""
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -974,24 +880,27 @@ def _alpha_stipple(alpha: float) -> str:
 #  HUD  (draggable)
 # ═══════════════════════════════════════════════════════════════
 
-def _hud_status_text(agents) -> tuple[list[tuple[str,str]], bool]:
-    """Return (rows, no_sess) for the HUD status panel."""
-    real     = sum(1 for a in agents.values() if not a.is_demo)
-    demo     = sum(1 for a in agents.values() if a.is_demo)
-    busy     = sum(1 for a in agents.values() if a.status == S.BUSY)
-    subs     = sum(a.subagents for a in agents.values())
-    thinking = sum(1 for a in agents.values() if a.status == S.THINKING)
+def _hud_status_text(programs) -> tuple[list[tuple[str,str]], bool]:
+    """Return (rows, no_sess) for the HUD status panel. One row per
+    program, plus a needs-input summary row. no_sess is True only when
+    every program has zero live sessions."""
+    no_sess = all(p.is_demo for p in programs.values())
 
-    no_sess    = (real == 0 and list(agents.keys()) == ["caine"])
-    sess_color = "#44ff88" if real > 0 else ("#aaaaaa" if no_sess else "#aaccff")
-    sess_line  = "  Waiting for session..." if no_sess else f"  Sessions  : {real} real / {demo} demo"
+    rows: list[tuple[str, str]] = []
+    if no_sess:
+        rows.append(("  Waiting for session...", "#aaaaaa"))
+    else:
+        for p in programs.values():
+            n = len(p.sessions)
+            color = STATUS_COLOR.get(p.status, "#aaccff")
+            rows.append((f"  {p.name:8}: {p.status:12} ({n} sess)", color))
 
-    rows = [
-        (sess_line,                      sess_color),
-        (f"  Busy      : {busy}",        STATUS_COLOR[S.BUSY]     if busy     else "#aaccff"),
-        (f"  Thinking  : {thinking}",    STATUS_COLOR[S.THINKING] if thinking else "#aaccff"),
-        (f"  Subagents : {subs}",        STATUS_COLOR[S.SUBAGENT] if subs     else "#aaccff"),
-    ]
+    needs_input = sum(len(p.needs_input_sessions) for p in programs.values())
+    subs        = sum(p.subagents for p in programs.values())
+    rows.append((f"  Needs input : {needs_input}",
+                 STATUS_COLOR[S.NEEDS_INPUT] if needs_input else "#aaccff"))
+    rows.append((f"  Subagents   : {subs}",
+                 STATUS_COLOR[S.SUBAGENT] if subs else "#aaccff"))
     return rows, no_sess
 
 
@@ -1026,7 +935,7 @@ class OverlayApp:
             bg=CHROMA_KEY, highlightthickness=0, bd=0)
         self.canvas.pack(fill="both", expand=True)
 
-        self.scanner = SessionScanner()
+        self.scanner = MultiProgramScanner()
         self.terrain = WindowTerrain(self.TITLE)
         self.avatars: dict[str, Avatar] = {}
         self.sub_avatars: dict[str, list[Avatar]] = {}   # parent_id → [sub Avatar, …]
@@ -1056,9 +965,25 @@ class OverlayApp:
         # HUD status window — separate, not topmost, draggable
         self._hud_win = None
         self._hud_drag_origin: Optional[tuple] = None
-        self._bubble_icon_photo = None
-        self._bubble_icon_id    = None
+        self._menu_icon_photo = None
+        self._menu_icon_id    = None
         self._tray = None
+
+        # ── Needs-input pipeline: UDP listener -> NotificationHub -> per-frame
+        # override in _tick() -> NotificationDispatcher (tray toast). The
+        # listener thread only ever touches NotificationHub's Lock-protected
+        # dict; TrayToastSink takes a callable (not self._tray directly)
+        # because the tray icon isn't created until _setup_tray runs later.
+        self.hub = NotificationHub()
+        self.dispatcher = NotificationDispatcher(
+            [ConsoleSink(), TrayToastSink(lambda: self._tray)])
+        self.listener = UDPListener(self.hub)
+        try:
+            self.listener.bind()
+            threading.Thread(target=self.listener.loop, daemon=True).start()
+        except OSError as e:
+            print(f"[overlay] UDP 47200 unavailable ({e}) -- polling only")
+            self.listener = None
 
         threading.Thread(target=self.scanner.loop, daemon=True).start()
         threading.Thread(target=self.terrain.loop, daemon=True).start()
@@ -1070,58 +995,50 @@ class OverlayApp:
     def _deferred_init(self):
         if REGISTRY:
             _load_sprites(REGISTRY)
-        self.root.after(0, self._load_bubble_icon)
+        self.root.after(0, self._load_menu_icon)
         self.root.after(0, self._create_hud_win)
         self.root.after(0, self._setup_tray)
 
     # ── Main loop ─────────────────────────────────────────────────────
 
     def _tick(self):
-        agents = self.scanner.get_agents()
+        programs = self.scanner.get_programs()
         floors = self.terrain.get_floors()
         walls  = self.terrain.get_walls()
 
+        # ── Needs-input override (every frame, independent of the 2s scan
+        # cadence -- this is what bounds hook-to-avatar latency to ~1 frame
+        # instead of up to 2s) ─────────────────────────────────────────
+        live_session_ids = {s.session_id for p in programs.values() for s in p.sessions}
+        self.hub.expire_stale(900)
+        self.hub.retain_only(live_session_ids)
+        needy_ids = self.hub.get_needs_input_session_ids()
+        for prog in programs.values():
+            prog.needs_input_sessions = [s for s in prog.sessions if s.session_id in needy_ids]
+            prog.status = S.NEEDS_INPUT if prog.needs_input_sessions else prog.base_status
+        for ev in self.hub.take_pending():
+            self.dispatcher.dispatch(ev)
+
         # ── Main avatars ──────────────────────────────────────────────
-        for aid in self.avatars.keys() - agents.keys():
-            self.avatars.pop(aid).cleanup(self.canvas)
-            for sv in self.sub_avatars.pop(aid, []):
+        # Program avatars are permanent (ENABLED_PROGRAMS never shrinks at
+        # runtime), so this diff is defensive rather than the normal path --
+        # unlike the old per-session model, avatars don't pop in/out here.
+        for pid_key in self.avatars.keys() - programs.keys():
+            self.avatars.pop(pid_key).cleanup(self.canvas)
+            for sv in self.sub_avatars.pop(pid_key, []):
                 sv.cleanup(self.canvas)
 
-        for aid in agents.keys() - self.avatars.keys():
-            agent = agents[aid]
-            self.avatars[aid] = Avatar(agent, self.sw, self.sh, self._cidx, REGISTRY)
+        for pid_key in programs.keys() - self.avatars.keys():
+            agent = programs[pid_key]
+            self.avatars[pid_key] = Avatar(agent, self.sw, self.sh, self._cidx, REGISTRY)
             self._cidx += 1
 
-        vanished_aids = []
-        for aid, av in self.avatars.items():
-            av.agent = agents[aid]
+        for pid_key, av in self.avatars.items():
+            av.agent = programs[pid_key]
 
             # Refresh activity timestamp while agent is doing work
             if av.agent.status in (S.BUSY, S.THINKING):
                 av.last_active = time.time()
-
-            if av._vanishing:
-                # Float upward, then pop with sprite-colored particles
-                av._vanish_frames += 1
-                av.vy  -= 0.18
-                av.vx  *= 0.97
-                av.y   += av.vy
-                av.x   += av.vx
-                av.draw(self.canvas)
-                if av._vanish_frames >= 65 or av.y < -av.ah:
-                    sprite_cols = _sample_sprite_colors(REGISTRY, av.agent.skin)
-                    cx, cy = av.x + av.aw / 2, av.y + av.ah / 2
-                    self._bursts.append(BurstEffect(cx, cy, self.color_for(av),
-                        extra_colors=sprite_cols, n=30, life=70, speed_max=6.0))
-                    vanished_aids.append(aid)
-                continue
-
-            # Trigger vanish after 5 min idle (demo avatars excluded)
-            if not av.agent.is_demo and time.time() - av.last_active > 300:
-                av._vanishing    = True
-                av._vanish_frames = 0
-                av.vx = random.uniform(-0.4, 0.4)
-                continue
 
             if av is self._drag_av:
                 av.vx = av.vy = 0.0
@@ -1133,12 +1050,6 @@ class OverlayApp:
                     av.vx = random.choice([-WALK_SPEED, WALK_SPEED])
                     av.vy = 0.0
             av.draw(self.canvas)
-
-        for aid in vanished_aids:
-            av = self.avatars.pop(aid)
-            av.cleanup(self.canvas)
-            for sv in self.sub_avatars.pop(aid, []):
-                sv.cleanup(self.canvas)
 
         # ── Subagent avatars ─────────────────────────────────────────
         self.canvas.delete("elastic")   # clear all elastic lines
@@ -1156,7 +1067,7 @@ class OverlayApp:
                                         fill=FLOOR_LINE_COLOR, width=1,
                                         stipple=stpl, tags="floor_line")
 
-        for aid, agent in agents.items():
+        for aid, agent in programs.items():
             if (agent.is_demo and TEST_SUBAGENTS == 0) or agent.subagents <= 0:
                 for sv in self.sub_avatars.pop(aid, []):
                     sv._task_done_at = time.time()
@@ -1192,7 +1103,7 @@ class OverlayApp:
                 sub_info = AgentInfo(
                     agent_id=f"{aid}_sub_{len(sub_list)}",
                     name=f"sub-{len(sub_list)+1}",
-                    status=S.BUSY, skin="bubble",
+                    status=S.BUSY, skin=SUBAGENT_SKIN,
                 )
                 sv = Avatar(sub_info, self.sw, self.sh,
                             self._cidx + 100 + len(sub_list), REGISTRY,
@@ -1280,28 +1191,13 @@ class OverlayApp:
         self._bursts   = [b for b in self._bursts   if b.tick(self.canvas)]
         self._glitches = [g for g in self._glitches if g.tick()]
 
-        self._update_hud_win(agents)
+        self._update_hud_win(programs)
         self.root.after(1000 // OVERLAY_FPS, self._tick)
 
     # ── Spring physics ────────────────────────────────────────────────
 
     def color_for(self, av: "Avatar") -> str:
         return STATUS_COLOR.get(av.agent.status, av.color)
-
-    def _apply_spring(self, sv: Avatar, parent_av: Avatar):
-        """Pull subagent toward parent with elastic spring force."""
-        px = parent_av.x + parent_av.aw / 2
-        py = parent_av.y + parent_av.ah / 2
-        sx = sv.x + sv.aw / 2
-        sy = sv.y + sv.ah / 2
-        dx, dy = px - sx, py - sy
-        dist = math.sqrt(dx*dx + dy*dy) or 1.0
-        if dist > SPRING_REST:
-            force = (dist - SPRING_REST) * SPRING_K * sv._spring_k_mult
-            sv.vx += (dx / dist) * force
-            sv.vy += (dy / dist) * force
-        sv.vx *= sv._spring_damp_v
-        sv.vy *= sv._spring_damp_v
 
     def _draw_elastic(self, parent_av: Avatar, sv: Avatar):
         """Draw a purple zigzag spring line between parent and subagent."""
@@ -1333,27 +1229,29 @@ class OverlayApp:
 
     # ── HUD status window ─────────────────────────────────────────────
 
-    def _load_bubble_icon(self):
-        img_path = Path(__file__).parent / "Sprites" / "bubble.png"
+    def _load_menu_icon(self):
+        # Uses Caine_Icon.png rather than a Bubble sprite frame: Bubble is
+        # now the Cursor program's avatar, so a static Bubble in the corner
+        # would read as a second Cursor indicator.
+        img_path = Path(__file__).parent / "Caine_Icon.png"
         if not HAS_PIL or not img_path.exists():
             return
         try:
-            sheet = Image.open(str(img_path)).convert("RGBA")
-            frame = sheet.crop((48, 0, 96, 48))   # row 0 col 1 — idle neutral
+            frame = Image.open(str(img_path)).convert("RGBA")
             frame = frame.resize((72, 72), Image.NEAREST)
-            self._bubble_icon_photo = ImageTk.PhotoImage(frame)
-            self._bubble_icon_id = self.canvas.create_image(
-                36, 36, image=self._bubble_icon_photo, anchor="center",
-                tags="bubble_icon"
+            self._menu_icon_photo = ImageTk.PhotoImage(frame)
+            self._menu_icon_id = self.canvas.create_image(
+                36, 36, image=self._menu_icon_photo, anchor="center",
+                tags="menu_icon"
             )
-            self.canvas.tag_bind("bubble_icon", "<Button-1>",
+            self.canvas.tag_bind("menu_icon", "<Button-1>",
                                  lambda e: self._show_hud_win())
-            self.canvas.tag_bind("bubble_icon", "<Enter>",
+            self.canvas.tag_bind("menu_icon", "<Enter>",
                                  lambda e: self.canvas.config(cursor="hand2"))
-            self.canvas.tag_bind("bubble_icon", "<Leave>",
+            self.canvas.tag_bind("menu_icon", "<Leave>",
                                  lambda e: self.canvas.config(cursor=""))
         except Exception as e:
-            print(f"[overlay] bubble icon load failed: {e}")
+            print(f"[overlay] menu icon load failed: {e}")
 
     def _bring_all_to_front(self):
         for win in [self._hud_win, self._picker, self._config_win]:
@@ -1361,6 +1259,13 @@ class OverlayApp:
                 win.deiconify()
                 win.lift()
                 win.focus_force()
+
+    def _on_tray_activate(self):
+        for prog in self.scanner.get_programs().values():
+            if prog.needs_input_sessions:
+                self._resolve_focus_target(prog)
+                return
+        self._bring_all_to_front()
 
     def _setup_tray(self):
         if not HAS_PIL:
@@ -1383,7 +1288,7 @@ class OverlayApp:
             )
             self._tray = pystray.Icon(
                 "AI Overlay", icon_img, "AI Overlay", menu,
-                on_activate=lambda icon: self.root.after(0, self._bring_all_to_front),
+                on_activate=lambda icon: self.root.after(0, self._on_tray_activate),
             )
             threading.Thread(target=self._tray.run, daemon=True).start()
         except Exception as e:
@@ -1428,7 +1333,7 @@ class OverlayApp:
                   font=("Courier", 10), relief="flat", bd=0,
                   padx=6, pady=0, cursor="hand2"
                   ).pack(side="right", padx=(0, 4))
-        tk.Label(title_bar, text="  AI Overlay v0.4", bg="#111133",
+        tk.Label(title_bar, text=f"  AI Avatar Room v{VERSION}", bg="#111133",
                  fg="#88aaff", font=BFONT, anchor="w").pack(side="left")
 
         # Buttons row
@@ -1455,11 +1360,11 @@ class OverlayApp:
         tk.Label(win, text="HOW TO USE", font=("Consolas", 10, "bold"),
                  fg="#00ffee", bg=BG).pack(anchor="w", padx=12, pady=(6, 0))
         for line in [
-            "R-click avatar  →  see bubble menu",
-            "Double-click    →  focus terminal",
+            "Double/R-click  →  focus session (picker if >1)",
             "L-drag          →  throw",
             "R-click empty   →  quit",
-            "Click avatar + ESC  →  close",
+            "Tray icon       →  jump to needs-input, else show HUD",
+            "ESC             →  quit",
         ]:
             tk.Label(win, text=line, font=("Consolas", 9),
                      fg="#aaccff", bg=BG, justify="left").pack(
@@ -1545,11 +1450,34 @@ class OverlayApp:
         av.vy = max(-max_v, min(dy * THROW_SCALE, max_v))
         self._drag_av = None
 
+    def _resolve_focus_target(self, program):
+        """Route a click on a program avatar to the right session: focus
+        directly if there's exactly one candidate, open a picker if there
+        are several, no-op if there are none. Needs-input sessions take
+        priority over the general session list."""
+        needy = program.needs_input_sessions
+        if len(needy) == 1:
+            self._focus_linked_console(needy[0].pid)
+            return
+        if len(needy) > 1:
+            open_session_picker(self.root, program,
+                                 lambda s: self._focus_linked_console(s.pid),
+                                 needs_input_ids={s.session_id for s in needy})
+            return
+        if len(program.sessions) == 1:
+            self._focus_linked_console(program.sessions[0].pid)
+            return
+        if len(program.sessions) > 1:
+            open_session_picker(self.root, program,
+                                 lambda s: self._focus_linked_console(s.pid))
+            return
+        # 0 sessions -- nothing to focus
+
     def _on_double_click(self, event):
         self._drag_av = None  # cancel drag started by the first click
         for av in list(self.avatars.values()):
             if av.x <= event.x <= av.x + av.aw and av.y <= event.y <= av.y + av.ah:
-                self._focus_linked_console(av.agent.pid)
+                self._resolve_focus_target(av.agent)
                 return
 
     # ── Right-click ───────────────────────────────────────────────────
@@ -1558,14 +1486,23 @@ class OverlayApp:
         if getattr(self, "_tray", None):
             try: self._tray.stop()
             except Exception: pass
+        if getattr(self, "listener", None):
+            try: self.listener.stop()
+            except Exception: pass
         self.root.quit()
 
     def _on_right_click(self, event):
-        for av in list(self.avatars.values()) + [sv for sl in self.sub_avatars.values() for sv in sl]:
+        for av in list(self.avatars.values()):
             if av.x <= event.x <= av.x+av.aw and av.y <= event.y <= av.y+av.ah:
                 self._glitches.append(GlitchFlash(
                     self.canvas, int(av.x), int(av.y), av.aw, av.ah, pink=False))
-                self._focus_linked_console(av.agent.pid)
+                self._resolve_focus_target(av.agent)
+                return
+        for sv in [sv for sl in self.sub_avatars.values() for sv in sl]:
+            if sv.x <= event.x <= sv.x+sv.aw and sv.y <= event.y <= sv.y+sv.ah:
+                self._glitches.append(GlitchFlash(
+                    self.canvas, int(sv.x), int(sv.y), sv.aw, sv.ah, pink=False))
+                self._focus_linked_console(sv.agent.pid)  # subagents: AgentInfo has no .sessions
                 return
         self._quit()
 
@@ -1674,9 +1611,10 @@ class OverlayApp:
     def _build_picker_ui(self, win):
         BG  = "#0d0d1a"; FG = "#aaccff"; SEL = "#223366"; FONT = ("Courier",9)
 
-        agents    = self.scanner.get_agents()
+        agents    = self.scanner.get_programs()
         agent_ids = list(agents.keys())
-        labels    = [f"{a.name} {'[D]' if a.is_demo else '[R]'}" for a in agents.values()]
+        labels    = [f"{a.name} ({len(a.sessions)} session{'s' if len(a.sessions) != 1 else ''})"
+                     for a in agents.values()]
         lbl_to_id = dict(zip(labels, agent_ids))
 
         top = tk.Frame(win, bg=BG, pady=6)
@@ -1815,9 +1753,10 @@ class OverlayApp:
         photos: list = []
 
         raw_names  = REGISTRY.list_sheets() if REGISTRY else []
+        # Bubble is now selectable (it's the Cursor program's default skin,
+        # not reserved for subagents anymore -- SUBAGENT_SKIN is "amongo").
         skin_names = [sn for sn in raw_names
-                      if sn != "bubble"
-                      and not (sn.startswith("amongo_h") and sn[8:].isdigit())]
+                      if not (sn.startswith("amongo_h") and sn[8:].isdigit())]
         if not skin_names:
             tk.Label(sf, text="No skins loaded.", bg=BG, fg="#556677", font=FONT).pack(anchor="w")
         else:
@@ -1864,9 +1803,7 @@ class OverlayApp:
         sel_agent.trace("w", _on_agent_change)
 
     def _apply_skin(self, agent_id, skin):
-        with self.scanner._lock:
-            if agent_id in self.scanner._agents:
-                self.scanner._agents[agent_id].skin = skin
+        self.scanner.set_skin(agent_id, skin)
 
     # ── Config screen ─────────────────────────────────────────────────────────
 
@@ -2049,7 +1986,7 @@ class OverlayApp:
         apply_btn.pack(pady=6)
 
     def run(self):
-        print(f"[AI Overlay v0.4] {self.sw}x{self.sh} @ {OVERLAY_FPS}fps")
+        print(f"[AI Avatar Room v{VERSION}] {self.sw}x{self.sh} @ {OVERLAY_FPS}fps")
         print("[AI Overlay] Drag HUD | R-Click avatar=terminal | R-Click empty=quit | ESC=quit")
         self.root.mainloop()
 

@@ -1,126 +1,1623 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Avatar Room · Bitbucket PR Dashboard</title>
-  <style>
-    :root { color-scheme: dark; --bg:#101521; --panel:#182235; --line:#2c3b56; --text:#e8efff; --muted:#9aacca; --good:#5fe09b; --warn:#f6c85f; --bad:#ff7385; --accent:#78a9ff; }
-    * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,Segoe UI,sans-serif; }
-    header { padding:24px max(20px, calc((100vw - 1280px)/2)); border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:18px; align-items:start; }
-    h1,h2,h3,p { margin:0; } h1 { font-size:22px; } h2 { font-size:16px; } .sub,.muted { color:var(--muted); } main { max-width:1280px; margin:0 auto; padding:20px; }
-    .grid { display:grid; grid-template-columns:360px minmax(0, 1fr); gap:18px; } .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; }
-    .setup { display:grid; gap:12px; } label { display:grid; gap:5px; color:var(--muted); font-size:12px; } input,select,button { font:inherit; } input,select { width:100%; background:#0f1727; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:8px 9px; }
-    button { cursor:pointer; color:#07101f; background:var(--accent); border:0; border-radius:6px; padding:8px 11px; font-weight:650; } button.secondary { background:#2a3a56; color:var(--text); } button.danger { background:#51303a; color:#ffb6c1; }
-    .actions { display:grid; gap:7px; margin-top:4px; } .actions label { display:flex; align-items:center; gap:8px; color:var(--text); font-size:13px; } .actions input { width:auto; accent-color:var(--accent); }
-    .row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; } .row > * { flex:1; } .row button { flex:0 0 auto; }
-    .status { margin-top:10px; min-height:22px; font-size:13px; color:var(--muted); } .status.error { color:var(--bad); } .status.ok { color:var(--good); }
-    .toolbar { display:flex; gap:9px; flex-wrap:wrap; align-items:center; margin:14px 0; } .toolbar select { width:auto; min-width:150px; } .toolbar .spacer { flex:1; } .pill { border:1px solid var(--line); border-radius:999px; padding:4px 9px; color:var(--muted); font-size:12px; }
-    table { width:100%; border-collapse:collapse; } th,td { text-align:left; padding:11px 8px; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; } td a { color:#a9c7ff; text-decoration:none; } td a:hover { text-decoration:underline; }
-    .badge { display:inline-block; border-radius:999px; padding:3px 7px; font-size:11px; font-weight:700; white-space:nowrap; } .open { color:#0f3221; background:var(--good); } .review { color:#36270a; background:var(--warn); } .failed { color:#481621; background:var(--bad); } .neutral { color:#d5e0f7; background:#34445f; }
-    .empty { padding:28px 8px; color:var(--muted); text-align:center; } dialog { border:1px solid var(--line); border-radius:10px; background:var(--panel); color:var(--text); max-width:520px; } dialog::backdrop { background:#050914bb; } dialog p { margin:10px 0; }
-    @media (max-width:800px) { .grid { grid-template-columns:1fr; } header { display:block; } .hide-small { display:none; } }
-  </style>
+<meta charset="utf-8" />
+<title>PR Pipeline Dashboard V2</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #0f1420;
+    --panel: #161d2e;
+    --panel-2: #1d2740;
+    --border: #2a3550;
+    --text: #e6e9f0;
+    --text-dim: #8b93a7;
+    --accent: #4f8cff;
+    --pending: #6b7280;
+    --running: #3b82f6;
+    --halted: #f59e0b;
+    --success: #22c55e;
+    --failed: #ef4444;
+    --error: #dc2626;
+    --stopped: #9ca3af;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.4 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; white-space: nowrap; }
+  header h1 span { color: var(--text-dim); font-weight: 400; }
+  .spacer { flex: 1; }
+  .summary { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    background: var(--panel-2); border: 1px solid var(--border); white-space: nowrap;
+  }
+  .pill.attention { background: rgba(79,140,255,.15); border-color: var(--accent); color: var(--accent); cursor: pointer; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .dot.pending { background: var(--pending); }
+  .dot.running { background: var(--running); box-shadow: 0 0 0 0 rgba(59,130,246,.6); animation: pulse 1.4s infinite; }
+  .dot.halted { background: var(--halted); }
+  .dot.success { background: var(--success); }
+  .dot.failed, .dot.error { background: var(--failed); }
+  .dot.stopped { background: var(--stopped); }
+  .dot.none { background: #3a4258; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(59,130,246,.55); }
+    70% { box-shadow: 0 0 0 6px rgba(59,130,246,0); }
+    100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); }
+  }
+  button {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.4); color: var(--failed); }
+  input[type=text], input[type=password], input[type=number] {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    padding: 6px 10px; border-radius: 6px; font-size: 13px; width: 100%;
+  }
+  #settingsPanel {
+    display: none;
+    padding: 16px 20px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  #settingsPanel.open { display: block; }
+  .settings-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; max-width: 1000px;
+  }
+  .field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
+  .settings-actions { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #connTest { font-size: 12px; color: var(--text-dim); }
+  .events-block { margin-top: 16px; max-width: 1000px; }
+  .events-block h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dim); margin: 0 0 8px; }
+  .checks { display: grid; gap: 6px; }
+  .checks label, .branch-checks label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
+  .branch-checks { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 8px; max-width: 1000px; }
+  .help {
+    margin-top: 14px; font-size: 12px; color: var(--text-dim); max-width: 760px; line-height: 1.6;
+  }
+  .help a { color: var(--accent); }
+  .help code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
+  main { padding: 16px 20px 60px; }
+  .attention-panel {
+    display: none; margin-bottom: 14px; background: rgba(79,140,255,.08); border: 1px solid rgba(79,140,255,.35);
+    border-radius: 8px; padding: 10px 14px;
+  }
+  .attention-panel.show { display: block; }
+  .attention-panel h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); }
+  .attention-panel ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+  .attention-panel li { font-size: 13px; }
+  .attention-panel a { color: var(--text); }
+  .attention-panel .reason { color: var(--text-dim); font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  thead th {
+    text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--text-dim); padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--panel-2);
+  }
+  thead tr.filter-row th {
+    padding: 6px 12px 10px; text-transform: none; font-size: 12px;
+  }
+  .filter-row input[type=text], .filter-row select {
+    width: 100%; background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 8px; font-size: 12px;
+  }
+  .filter-row select#filterBranch { margin-top: 5px; }
+  tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,.02); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .pr-title { font-weight: 600; }
+  .branches { color: var(--text-dim); font-size: 12px; margin-top: 2px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; border: 1px solid transparent;
+  }
+  .badge.pending { background: rgba(107,114,128,.15); color: var(--pending); border-color: rgba(107,114,128,.3); }
+  .badge.running { background: rgba(59,130,246,.15); color: var(--running); border-color: rgba(59,130,246,.3); }
+  .badge.halted { background: rgba(245,158,11,.15); color: var(--halted); border-color: rgba(245,158,11,.3); }
+  .badge.success { background: rgba(34,197,94,.15); color: var(--success); border-color: rgba(34,197,94,.3); }
+  .badge.failed, .badge.error { background: rgba(239,68,68,.15); color: var(--failed); border-color: rgba(239,68,68,.3); }
+  .badge.stopped { background: rgba(156,163,175,.15); color: var(--stopped); border-color: rgba(156,163,175,.3); }
+  .badge.none { background: rgba(255,255,255,.04); color: var(--text-dim); border-color: var(--border); }
+  .passed-pill {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700;
+    padding: 2px 8px; border-radius: 999px; background: rgba(34,197,94,.12); color: var(--success);
+    border: 1px solid rgba(34,197,94,.3); text-decoration: none;
+  }
+  .passed-pill:hover { background: rgba(34,197,94,.2); }
+  .review-badge { font-size: 12px; }
+  .review-badge.needed { color: var(--accent); font-weight: 600; }
+  .review-icons { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
+  .review-icon {
+    display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700;
+    padding: 1px 7px; border-radius: 999px; border: 1px solid transparent;
+  }
+  .review-icon.approved { background: rgba(34,197,94,.15); color: var(--success); border-color: rgba(34,197,94,.3); }
+  .review-icon.changes { background: rgba(245,158,11,.15); color: var(--halted); border-color: rgba(245,158,11,.3); }
+  .chips { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+  .chip {
+    font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-dim);
+  }
+  .chip.running { color: var(--running); border-color: rgba(59,130,246,.4); }
+  .chip.halted { color: var(--halted); border-color: rgba(245,158,11,.4); }
+  .chip.success { color: var(--success); border-color: rgba(34,197,94,.4); }
+  .chip.failed, .chip.error { color: var(--failed); border-color: rgba(239,68,68,.4); }
+  .muted { color: var(--text-dim); }
+  .status-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-dim); margin-left: auto; }
+  .tabbar { display: flex; gap: 4px; padding: 0 20px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .tab {
+    background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-dim);
+    padding: 11px 4px; margin: 0 14px 0 0; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 0;
+  }
+  .tab:hover { border-color: transparent; color: var(--text); }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab .tab-count { color: var(--text-dim); font-weight: 400; margin-left: 4px; }
+  .linked-pr { font-size: 12px; }
+  #banner {
+    display: none; padding: 8px 20px; background: rgba(245,158,11,.15); color: var(--halted);
+    border-bottom: 1px solid rgba(245,158,11,.3); font-size: 13px;
+  }
+  #banner.show { display: block; }
+  .empty { padding: 40px; text-align: center; color: var(--text-dim); }
+  .bell {
+    background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px;
+    font-size: 14px; line-height: 1; opacity: .55; cursor: pointer;
+  }
+  .bell:hover { opacity: 1; border-color: var(--accent); }
+  .bell.active { opacity: 1; background: rgba(79,140,255,.15); border-color: var(--accent); }
+  tr.watched { box-shadow: inset 3px 0 0 var(--accent); }
+  tr.needs-review { box-shadow: inset 3px 0 0 var(--halted); }
+  tr.watched.needs-review { box-shadow: inset 3px 0 0 var(--accent), inset 6px 0 0 var(--halted); }
+  .badge-btn { background: none; border: none; padding: 0; cursor: pointer; }
+  .badge-btn:disabled { cursor: default; }
+  .pipeline-cell { display: flex; align-items: center; gap: 6px; }
+  .build-link-btn, .relaunch-btn {
+    display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px;
+    border-radius: 6px; border: 1px solid var(--border); color: var(--text-dim); text-decoration: none;
+    font-size: 13px; line-height: 1; flex: none;
+  }
+  .build-link-btn:hover, .relaunch-btn:hover { border-color: var(--accent); color: var(--text); }
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    align-items: flex-start; justify-content: center; padding: 40px 20px; z-index: 100; overflow-y: auto;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    width: 100%; max-width: 720px; padding: 18px 20px 20px;
+  }
+  .modal-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .modal-head .modal-title { font-weight: 600; font-size: 15px; }
+  .modal-head .branches { margin-top: 4px; }
+  .modal-close { margin-left: auto; }
+  .modal-links { margin: 6px 0 14px; font-size: 12px; }
+  .step-row {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border);
+    border-radius: 6px; margin-bottom: 6px; cursor: pointer; background: var(--panel-2);
+  }
+  .step-row .step-name { font-weight: 600; font-size: 13px; }
+  .step-row .step-meta { margin-left: auto; font-size: 11px; color: var(--text-dim); }
+  .step-toggle { font-size: 11px; color: var(--text-dim); }
+  .step-log {
+    background: #0a0e18; border: 1px solid var(--border); border-top: none; border-radius: 0 0 6px 6px;
+    margin: -8px 0 6px; padding: 8px 10px;
+  }
+  .step-log pre {
+    margin: 0; max-height: 240px; overflow: auto; font-size: 11px; white-space: pre-wrap; word-break: break-word;
+    color: var(--text-dim); font-family: ui-monospace, Consolas, monospace;
+  }
+  .modal-empty { color: var(--text-dim); font-size: 13px; padding: 10px 0; }
+  dialog#alertDialog { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); max-width: 520px; width: 100%; padding: 16px 18px; }
+  dialog#alertDialog::backdrop { background: rgba(5,9,20,.7); }
+  dialog#alertDialog h2 { margin: 0 0 10px; font-size: 15px; }
+  #alertBody { display: grid; gap: 10px; max-height: 60vh; overflow-y: auto; margin: 0 0 14px; }
+  .alert-event { padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; }
+  .alert-event .alert-text { font-size: 13px; margin: 0 0 8px; }
+  .alert-links { display: flex; gap: 8px; flex-wrap: wrap; }
+  .alert-links a { display: inline-block; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; background: var(--accent); color: #fff; text-decoration: none; }
+  .alert-links a.build-link { background: var(--panel); border: 1px solid var(--border); color: var(--text); }
+  .alert-links a:hover { text-decoration: none; opacity: .9; }
+</style>
 </head>
 <body>
-  <header>
-    <div><h1>Bitbucket PR Dashboard</h1><p class="sub">Read-only watchboard for a Bitbucket Cloud repository.</p></div>
-    <span id="connection" class="pill">Not connected</span>
-  </header>
-  <main class="grid">
-    <aside class="panel">
-      <h2>Initial setup</h2>
-      <p class="muted" style="margin:6px 0 14px">Create a Bitbucket API token with only <code>read:pullrequest:bitbucket</code>. The token remains in this browser profile.</p>
-      <form id="setup-form" class="setup">
-        <label>Bitbucket API token<input id="token" type="password" autocomplete="off" placeholder="Paste access token"></label>
-        <label>Workspace<input id="workspace" required placeholder="your-workspace"></label>
-        <label>Repository slug<input id="repo" required placeholder="your-repository"></label>
-        <label>Refresh PR status<select id="refresh"><option value="1000">1 second</option><option value="5000">5 seconds</option><option value="10000">10 seconds</option><option value="60000" selected>60 seconds</option><option value="300000">5 minutes</option></select></label>
-        <div><label>Notify / flag relevant changes</label><div class="actions">
-          <label><input id="event-new" type="checkbox" checked>New PR into a watched branch</label>
-          <label><input id="event-updated" type="checkbox" checked>New commits or PR update</label>
-          <label><input id="event-review" type="checkbox" checked>Review requested from me</label>
-          <label><input id="event-build" type="checkbox">Failed PR build/check</label>
-        </div></div>
-        <div><label>Watch for approval (Avatar Room attention queue)</label>
-          <p class="muted" style="margin:2px 0 6px;font-size:11px">A PR targeting a checked branch surfaces there when it needs your approval, or breaks after you approved it.</p>
-          <div id="watch-branches" class="actions"><span class="muted" style="font-size:12px">Connect to list destination branches.</span></div>
-        </div>
-        <div class="row"><button type="submit">Save and connect</button><button id="forget" class="danger" type="button">Forget token</button></div>
-      </form>
-      <p id="setup-status" class="status">Enter a workspace and repo, then connect.</p>
-    </aside>
-    <section class="panel">
-      <div class="row"><div><h2>Open pull requests</h2><p id="scope" class="muted">Connect to retrieve destination branches.</p></div><button id="refresh-now" class="secondary">Refresh now</button></div>
-      <div class="toolbar"><label>Destination branch<select id="branch-filter"><option value="">All tracked branches</option></select></label><span class="spacer"></span><span id="jobs-running" class="pill" hidden>0 jobs running</span><span id="last-updated" class="pill">No data yet</span></div>
-      <div id="table-wrap"><div class="empty">No PR data loaded.</div></div>
-    </section>
-  </main>
-  <dialog id="alert-dialog"><h2 id="alert-title">PR update</h2><p id="alert-body"></p><form method="dialog"><button>Got it</button></form></dialog>
-  <script>
-  (() => {
-    const API = 'https://api.bitbucket.org/2.0';
-    const KEY = 'avatar-room.bitbucket-dashboard.v1';
-    const $ = id => document.getElementById(id);
-    const fields = ['token','workspace','repo','refresh','event-new','event-updated','event-review','event-build'];
-    let timer = null, running = false, previous = {}, availableBranches = [], currentUser = null, lastBranchSync = 0, watchBranches = [];
 
-    function settings() { return Object.fromEntries(fields.map(id => [id, $(id).type === 'checkbox' ? $(id).checked : $(id).value.trim()])); }
-    function save() { localStorage.setItem(KEY, JSON.stringify({ ...settings(), availableBranches, watchBranches })); }
-    function load() { try { const s = JSON.parse(localStorage.getItem(KEY) || '{}'); fields.forEach(id => { if (s[id] !== undefined) $(id).type === 'checkbox' ? $(id).checked = s[id] : $(id).value = s[id]; }); availableBranches = Array.isArray(s.availableBranches) ? s.availableBranches : []; watchBranches = Array.isArray(s.watchBranches) ? s.watchBranches : []; } catch {} renderBranchFilters(); postStatus(); }
-    function setStatus(message, kind='') { const n = $('setup-status'); n.textContent = message; n.className = `status ${kind}`; }
-    function authHeaders() { return { 'Accept':'application/json', 'Authorization':`Bearer ${$('token').value.trim()}` }; }
-    function endpoint(path, query={}) { const u = new URL(`${API}${path}`); Object.entries(query).forEach(([k,v]) => v !== '' && u.searchParams.set(k,v)); return u; }
-    async function request(path, query={}) { const response = await fetch(endpoint(path, query), { headers:authHeaders() }); if (response.status === 429) throw new Error('Bitbucket rate-limited this token. The dashboard will wait 60 seconds before retrying.'); if (!response.ok) throw new Error(`Bitbucket returned ${response.status}: ${await response.text()}`); return response.json(); }
-    async function allPages(path, query={}) { let url = endpoint(path, query).href, values = []; while (url) { const response = await fetch(url, { headers:authHeaders() }); if (!response.ok) throw new Error(`Bitbucket returned ${response.status}: ${await response.text()}`); const page = await response.json(); values.push(...(page.values || [])); url = page.next || ''; } return values; }
-    function tracked(branch) { return branch && !branch.startsWith('feature/'); }
-    function renderBranchFilters() { const select = $('branch-filter'), chosen = select.value; select.innerHTML = '<option value="">All tracked branches</option>'; availableBranches.forEach(branch => { const option = new Option(branch, branch); if (branch === chosen) option.selected = true; select.add(option); }); renderWatchBranches(); }
-    function renderWatchBranches() { const box = $('watch-branches'); if (!availableBranches.length) { box.innerHTML = '<span class="muted" style="font-size:12px">Connect to list destination branches.</span>'; return; } box.innerHTML = availableBranches.map(branch => `<label><input type="checkbox" data-watch="${esc(branch)}" ${watchBranches.includes(branch) ? 'checked' : ''}>${esc(branch)}</label>`).join(''); box.querySelectorAll('input[data-watch]').forEach(cb => cb.addEventListener('change', () => { const b = cb.dataset.watch; watchBranches = cb.checked ? [...new Set([...watchBranches, b])] : watchBranches.filter(x => x !== b); save(); refresh(); })); }
-    function formatDate(date) { return date ? new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(new Date(date)) : '—'; }
-    function esc(value) { const d = document.createElement('div'); d.textContent = value || ''; return d.innerHTML; }
-    function reviewers(pr) { const list = pr.participants || []; const approved = list.filter(x => x.approved).length; const requested = list.filter(x => x.role === 'REVIEWER').length; return requested ? `${approved}/${requested} approved` : 'No reviewers'; }
-    function buildBadge(pr) { const failed = pr.__buildFailed; if (failed) return '<span class="badge failed">CHECK FAILED</span>'; if (pr.__reviewRequested) return '<span class="badge review">YOUR REVIEW</span>'; return '<span class="badge open">OPEN</span>'; }
-    function render(prs) { const filter = $('branch-filter').value; const shown = prs.filter(pr => !filter || pr.destination.branch.name === filter); if (!shown.length) { $('table-wrap').innerHTML = '<div class="empty">No open pull requests match this branch.</div>'; return; }
-      $('table-wrap').innerHTML = `<table><thead><tr><th>PR</th><th>Destination</th><th>Author</th><th class="hide-small">Review</th><th class="hide-small">Updated</th><th>Status</th></tr></thead><tbody>${shown.map(pr => `<tr><td><a href="${esc(pr.links.html.href)}" target="_blank" rel="noreferrer">#${pr.id} · ${esc(pr.title)}</a><br><span class="muted">${esc(pr.source.branch?.name || 'source deleted')}</span></td><td>${esc(pr.destination.branch.name)}</td><td>${esc(pr.author?.display_name || 'Unknown')}</td><td class="hide-small">${reviewers(pr)}</td><td class="hide-small">${formatDate(pr.updated_on)}</td><td>${buildBadge(pr)}</td></tr>`).join('')}</tbody></table>`; }
-    async function addBuildStatus(prs, s) { if (!s['event-build']) return prs; await Promise.all(prs.map(async pr => { try { const statuses = await allPages(`/repositories/${encodeURIComponent(s.workspace)}/${encodeURIComponent(s.repo)}/pullrequests/${pr.id}/statuses`, { pagelen: 100 }); pr.__buildFailed = statuses.some(status => ['FAILED','ERROR','STOPPED'].includes(status.state)); } catch { pr.__buildFailed = false; } })); return prs; }
-    // Scoped to watched-branch PRs only, independent of the event-build
-    // toggle above (that toggle is for the update-toast opt-in; this feeds
-    // the Avatar Room attention queue and running-jobs count, which the
-    // user wants regardless of whether toasts are on).
-    async function addWatchedJobStatus(prs, s) { const targets = prs.filter(pr => watchBranches.includes(pr.destination.branch.name) && pr.__buildFailed === undefined); await Promise.all(targets.map(async pr => { try { const statuses = await allPages(`/repositories/${encodeURIComponent(s.workspace)}/${encodeURIComponent(s.repo)}/pullrequests/${pr.id}/statuses`, { pagelen: 100 }); pr.__jobStates = statuses.map(x => x.state); pr.__buildFailed = statuses.some(x => ['FAILED','ERROR','STOPPED'].includes(x.state)); } catch { pr.__jobStates = []; } })); }
-    function computeAttention(prs) { const watched = prs.filter(pr => watchBranches.includes(pr.destination.branch.name)); const attentionPRs = watched.filter(pr => pr.__reviewRequested || (pr.__approvedByMe && pr.__buildFailed)).map(pr => ({ id: pr.id, title: pr.title, destination: pr.destination.branch.name, source: pr.source.branch?.name || '', url: pr.links.html.href, reason: pr.__reviewRequested ? 'review' : 'failed', updatedOn: pr.updated_on })); const runningJobs = watched.reduce((n, pr) => n + (pr.__jobStates || []).filter(st => st === 'INPROGRESS').length, 0); return { attentionPRs, runningJobs }; }
-    function postStatus(attentionPRs, runningJobs) { try { window.parent.postMessage({ type: 'avatar-room:pr-status', connected: !!currentUser, watchBranches, attentionPRs: attentionPRs || [], runningJobs: runningJobs || 0 }, window.location.origin); } catch {} }
-    function eventsFor(prs, s) { const next = {}; const events = []; prs.forEach(pr => { const stamp = `${pr.updated_on}|${pr.__buildFailed}|${pr.__reviewRequested}`; next[pr.id] = stamp; const old = previous[pr.id]; if (old === undefined && s['event-new']) events.push(`New PR #${pr.id}: ${pr.title}`); else if (old && old !== stamp && ((pr.__buildFailed && s['event-build']) || (pr.__reviewRequested && s['event-review']) || s['event-updated'])) events.push(`Updated PR #${pr.id}: ${pr.title}`); }); previous = next; return events; }
-    function showEvents(events) { if (!events.length) return; const title = events.length === 1 ? 'PR update' : `${events.length} PR updates`; const body = events.slice(0,5).join('\n'); $('alert-title').textContent = title; $('alert-body').textContent = body; $('alert-dialog').showModal(); if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body }); }
-    async function refresh() { if (running) return; const s = settings(); if (!s.token || !s.workspace || !s.repo) { postStatus(); return; } running = true; $('refresh-now').disabled = true; setStatus('Refreshing PRs…'); try {
-        currentUser = currentUser || await request('/user');
-        const base = `/repositories/${encodeURIComponent(s.workspace)}/${encodeURIComponent(s.repo)}`;
-        // Branches are retrieved on first connection and then at most once every
-        // ten minutes. Fast PR polling must not multiply API calls unnecessarily.
-        const branchRequest = (!availableBranches.length || Date.now() - lastBranchSync > 600000)
-          ? allPages(`${base}/refs/branches`, { pagelen:100, sort:'name' }) : Promise.resolve(null);
-        const [branches, prs] = await Promise.all([branchRequest, allPages(`${base}/pullrequests`, { state:'OPEN', sort:'-updated_on', pagelen:50 })]);
-        if (branches) { availableBranches = branches.map(x => x.name).filter(tracked); lastBranchSync = Date.now(); save(); renderBranchFilters(); }
-        prs.forEach(pr => { const mine = (pr.participants || []).find(x => x.role === 'REVIEWER' && x.user?.account_id === currentUser.account_id); pr.__reviewRequested = !!mine && !mine.approved; pr.__approvedByMe = !!mine && !!mine.approved; });
-        await addBuildStatus(prs, s); render(prs); const events = eventsFor(prs, s); showEvents(events);
-        await addWatchedJobStatus(prs, s);
-        const { attentionPRs, runningJobs } = computeAttention(prs);
-        $('jobs-running').hidden = watchBranches.length === 0; $('jobs-running').textContent = `${runningJobs} job${runningJobs === 1 ? '' : 's'} running`;
-        postStatus(attentionPRs, runningJobs);
-        $('connection').textContent = `${s.workspace}/${s.repo}`; $('scope').textContent = `${availableBranches.length} non-feature destination branches retrieved and stored locally.`; $('last-updated').textContent = `Updated ${new Date().toLocaleTimeString()}`; setStatus(`Connected. ${prs.length} open PR${prs.length === 1 ? '' : 's'} found.`, 'ok');
-      } catch (error) { setStatus(error.message, 'error'); $('connection').textContent = 'Connection error'; postStatus(); if (String(error.message).includes('rate-limited')) schedule(60000); }
-      finally { running = false; $('refresh-now').disabled = false; }
+<header>
+  <h1>PR Pipeline Dashboard <span>V2</span></h1>
+  <div class="summary" id="summary"></div>
+  <div class="spacer"></div>
+  <div class="status-row">
+    <span id="lastUpdated">—</span>
+    <span id="countdown"></span>
+  </div>
+  <button id="refreshBtn">Refrescar</button>
+  <button id="settingsBtn">⚙ Config</button>
+</header>
+
+<div class="tabbar">
+  <button class="tab active" id="tabPrs" data-tab="prs">PR abiertas<span class="tab-count" id="tabPrsCount"></span></button>
+  <button class="tab" id="tabBuilds" data-tab="builds">Builds<span class="tab-count" id="tabBuildsCount"></span></button>
+</div>
+
+<div id="banner"></div>
+
+<div id="settingsPanel">
+  <div class="settings-grid">
+    <div class="field">
+      <label>Workspace</label>
+      <input type="text" id="cfgWorkspace" placeholder="tu-workspace" />
+    </div>
+    <div class="field">
+      <label>Repo slug</label>
+      <input type="text" id="cfgRepo" placeholder="tu-repositorio" />
+    </div>
+    <div class="field">
+      <label>Email de tu cuenta Atlassian</label>
+      <input type="text" id="cfgEmail" placeholder="tú@ejemplo.com" />
+    </div>
+    <div class="field">
+      <label>API token</label>
+      <input type="password" id="cfgToken" placeholder="pega aquí tu API token" />
+    </div>
+    <div class="field">
+      <label>Refresco automático (segundos)</label>
+      <input type="number" id="cfgInterval" value="30" min="3" max="300" />
+    </div>
+  </div>
+  <div class="settings-actions">
+    <button class="primary" id="saveSettings">Guardar</button>
+    <button id="testConn">Probar conexión</button>
+    <span id="connTest"></span>
+    <span class="spacer"></span>
+    <button id="testNotif">🔔 Probar notificación</button>
+    <span id="notifStatus" class="muted"></span>
+  </div>
+
+  <div class="events-block">
+    <h3>Filtros</h3>
+    <div class="checks">
+      <label><input type="checkbox" id="cfgHideDrafts"> Ocultar PRs en borrador (draft) <span class="muted" id="hideDraftsStatus" style="font-size:11px"></span></label>
+    </div>
+  </div>
+
+  <div class="events-block">
+    <h3>Avisarme cuando</h3>
+    <div class="checks">
+      <label><input type="checkbox" id="evtNew" checked> Se abre una PR nueva</label>
+      <label><input type="checkbox" id="evtUpdated" checked> Una PR recibe commits o se actualiza</label>
+      <label><input type="checkbox" id="evtReview" checked> Me piden revisión en una PR</label>
+      <label><input type="checkbox" id="evtBuild" checked> El pipeline de una PR falla</label>
+    </div>
+  </div>
+
+  <div class="events-block">
+    <h3>Ramas vigiladas (panel de atención)</h3>
+    <p class="muted" style="margin:0 0 4px;font-size:12px">Una PR hacia una rama marcada aparece en "Necesita tu atención" si te piden revisión, o si se rompe el pipeline después de que la aprobaste.</p>
+    <div id="branchChecks" class="branch-checks"><span class="muted" style="font-size:12px">Conecta para listar las ramas destino.</span></div>
+    <div class="row" style="display:flex;gap:8px;align-items:center;margin-top:10px;max-width:420px">
+      <input type="text" id="customBranchInput" placeholder="Otra rama a vigilar..." />
+      <button id="addCustomBranch">Añadir</button>
+    </div>
+    <div id="customWatchBranches" class="summary" style="margin-top:8px"></div>
+  </div>
+
+  <div class="help">
+    <strong>Cómo crear el API token</strong> (reemplaza a los App Passwords, que Atlassian ha ido retirando):<br/>
+    1. Ve a <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener">id.atlassian.com → Security → API tokens</a>.<br/>
+    2. Crea un token con scopes acotados a Bitbucket: <code>read:pullrequest:bitbucket</code>, <code>read:pipeline:bitbucket</code>, <code>read:repository:bitbucket</code>, <code>read:account</code>.<br/>
+    3. Pega el token arriba junto con el email de tu cuenta Atlassian (no tu usuario de Bitbucket). Todo se guarda solo en <code>localStorage</code> de este navegador — nunca se envía a ningún sitio salvo <code>api.bitbucket.org</code>.<br/>
+    Este archivo es 100% local: ábrelo con doble clic o <code>file://</code>, no necesita servidor.<br/>
+    <strong>Notificaciones:</strong> pulsa la 🔔 de una PR para vigilar su pipeline; al concederse el permiso verás una notificación de confirmación inmediata, y cuando su pipeline termine (success/failed/error/detenido) saltará otra. Las casillas "Avisarme cuando" de arriba controlan avisos globales (PR nueva, actualizada, revisión pedida, pipeline fallido) para todas las PRs, no solo las vigiladas. Deja la pestaña abierta (puede estar minimizada) para que siga comprobando en segundo plano.<br/>
+    <strong>Si el navegador pide permiso pero nunca ves ninguna notificación</strong> (consola con <code>Notification onerror</code>): es Windows rechazando el aviso, no la página. Causas típicas, de más a menos probable en un equipo de empresa: 1) estás en una sesión de <strong>Escritorio Remoto (RDP)/VDI</strong> — las notificaciones toast de Windows fallan casi siempre ahí; 2) <strong>política de empresa</strong> bloqueando notificaciones del navegador (compruébalo en <code>chrome://policy</code>, busca <code>DefaultNotificationsSetting</code>); 3) Configuración > Sistema > Notificaciones de Windows con Chrome/Edge desactivado.<br/>
+    Por eso, además del aviso nativo, esta página tiene una <strong>alarma de respaldo</strong> que funciona aunque Windows bloquee las notificaciones: pitido audible + parpadeo del título de la pestaña cuando termina un pipeline vigilado con la pestaña oculta. No depende de permisos del sistema operativo. Cuando la Notification API no está disponible o el permiso no se concede, los avisos globales quedan igualmente registrados en un diálogo dentro de la página.
+  </div>
+</div>
+
+<main>
+  <div id="prView">
+  <div class="attention-panel" id="attentionPanel">
+    <h3>Necesita tu atención</h3>
+    <ul id="attentionList"></ul>
+  </div>
+
+  <table id="prTable">
+    <thead>
+      <tr>
+        <th style="width:36px">#</th>
+        <th>Pull Request</th>
+        <th>Autor</th>
+        <th>Revisión</th>
+        <th>Pipeline</th>
+        <th style="width:120px">Actualizada</th>
+        <th style="width:40px"></th>
+      </tr>
+      <tr class="filter-row">
+        <th></th>
+        <th>
+          <input type="text" id="filterTitle" placeholder="Título..." />
+          <select id="filterBranch"><option value="">Todas las ramas destino</option></select>
+        </th>
+        <th><input type="text" id="filterAuthor" placeholder="Autor..." /></th>
+        <th>
+          <select id="filterReview">
+            <option value="">Todas</option>
+            <option value="pending">Pendiente de mí</option>
+            <option value="approvedByMe">Aprobada por mí</option>
+            <option value="none">Sin revisores</option>
+          </select>
+        </th>
+        <th>
+          <select id="filterPipeline">
+            <option value="">Todos</option>
+            <option value="active">Activo (pendiente/corriendo/halted)</option>
+            <option value="pending">Pendiente</option>
+            <option value="running">Corriendo</option>
+            <option value="halted">Halted</option>
+            <option value="success">Success</option>
+            <option value="failed">Failed</option>
+            <option value="error">Error</option>
+            <option value="stopped">Detenido</option>
+            <option value="none">Sin pipeline</option>
+          </select>
+        </th>
+        <th></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="prTbody"></tbody>
+  </table>
+  <div class="empty" id="emptyState" style="display:none"></div>
+  </div>
+
+  <div id="buildsView" style="display:none">
+  <table id="buildsTable">
+    <thead>
+      <tr>
+        <th style="width:70px">#</th>
+        <th>Build</th>
+        <th>Autor</th>
+        <th>PR vinculada</th>
+        <th>Estado</th>
+        <th style="width:120px">Iniciado</th>
+        <th style="width:40px"></th>
+      </tr>
+      <tr class="filter-row">
+        <th></th>
+        <th>
+          <input type="text" id="filterBuildTitle" placeholder="Rama o commit..." />
+          <select id="filterBuildBranch"><option value="">Todas las ramas destino</option></select>
+        </th>
+        <th><input type="text" id="filterBuildAuthor" placeholder="Autor..." /></th>
+        <th>
+          <select id="filterBuildLinked">
+            <option value="">Todas</option>
+            <option value="withPr">Con PR vinculada</option>
+            <option value="withoutPr">Sin PR (push directo)</option>
+          </select>
+        </th>
+        <th>
+          <select id="filterBuildStatus">
+            <option value="">Todos</option>
+            <option value="active">Activo (pendiente/corriendo/halted)</option>
+            <option value="pending">Pendiente</option>
+            <option value="running">Corriendo</option>
+            <option value="halted">Halted</option>
+            <option value="success">Success</option>
+            <option value="failed">Failed</option>
+            <option value="error">Error</option>
+            <option value="stopped">Detenido</option>
+          </select>
+        </th>
+        <th></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="buildsTbody"></tbody>
+  </table>
+  <div class="empty" id="buildsEmptyState" style="display:none"></div>
+  </div>
+</main>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalPanel">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="modalTitle"></div>
+        <div class="branches" id="modalBranches"></div>
+      </div>
+      <button class="modal-close" id="modalClose">✕ Cerrar</button>
+    </div>
+    <div class="modal-links" id="modalLinks"></div>
+    <div id="modalStatus" class="modal-empty">Cargando steps…</div>
+    <div id="modalSteps"></div>
+  </div>
+</div>
+
+<dialog id="alertDialog">
+  <h2 id="alertTitle">Aviso</h2>
+  <div id="alertBody"></div>
+  <form method="dialog"><button>Entendido</button></form>
+</dialog>
+
+<script>
+const SETTINGS_KEY = 'pr-pipeline-dashboard-v2-settings';
+const WATCH_KEY = 'pr-pipeline-dashboard-v2-watched';
+const BRANCHES_KEY = 'pr-pipeline-dashboard-v2-branches';
+const PASSED_BUILDS_KEY = 'pr-pipeline-dashboard-v2-passed-builds';
+const WATCH_BUILDS_KEY = 'pr-pipeline-dashboard-v2-watched-builds';
+const STATUS_LABEL = {
+  pending: 'Pendiente', running: 'Corriendo', halted: 'Halted', success: 'Success',
+  failed: 'Failed', error: 'Error', stopped: 'Detenido', none: 'Sin pipeline'
+};
+const TERMINAL_CODES = new Set(['success', 'failed', 'error', 'stopped']);
+const ACTIVE_CODES = new Set(['pending', 'running', 'halted']);
+const BUILD_FAILED_CODES = new Set(['failed', 'error', 'stopped']);
+const RELAUNCHABLE_CODES = new Set(['halted', 'failed', 'error', 'stopped']);
+
+let settings = loadSettings();
+let refreshTimer = null;
+let countdownTimer = null;
+let secondsLeft = 0;
+let inFlight = false;
+let backoffUntil = 0;
+let lastRows = [];
+let lastBuilds = [];
+let activeTab = 'prs';
+let watched = loadWatched();
+let watchedBuilds = loadWatchedBuilds();
+let availableBranches = loadBranches();
+let watchBranches = new Set(settings.watchBranches || []);
+let lastBranchSync = 0;
+let currentUser = null;
+// Recuerda, PR por PR, el build con mejor resultado visto hasta ahora en esta
+// sesion (persistido) para que un rebuild posterior (aprobacion + nuevo push,
+// reintento manual...) no "tape" un build que ya habia pasado.
+let passedBuildByPr = loadPassedBuilds();
+// Solo notificamos transiciones observadas dentro de esta sesion (no al abrir
+// la pagina con una PR ya terminada o ya pendiente de revision).
+let lastStatusByPr = {};
+let lastEventStampByPr = {};
+let lastBuildStatusByUuid = {};
+let modalState = { open: false, prId: null, pipelineUuid: null, pollTimer: null, expandedSteps: new Set(), logCache: new Map() };
+const ORIGINAL_TITLE = document.title;
+let titleFlashTimer = null;
+let audioCtx = null;
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return {
+    workspace: '', repo: '', email: '', token: '', interval: 30,
+    evtNew: true, evtUpdated: true, evtReview: true, evtBuild: true, watchBranches: [],
+    hideDrafts: false
+  };
+}
+
+function saveSettingsFromForm() {
+  settings = {
+    workspace: document.getElementById('cfgWorkspace').value.trim(),
+    repo: document.getElementById('cfgRepo').value.trim(),
+    email: document.getElementById('cfgEmail').value.trim(),
+    token: document.getElementById('cfgToken').value.trim(),
+    interval: Math.max(3, parseInt(document.getElementById('cfgInterval').value, 10) || 30),
+    evtNew: document.getElementById('evtNew').checked,
+    evtUpdated: document.getElementById('evtUpdated').checked,
+    evtReview: document.getElementById('evtReview').checked,
+    evtBuild: document.getElementById('evtBuild').checked,
+    hideDrafts: document.getElementById('cfgHideDrafts').checked,
+    watchBranches: [...watchBranches]
+  };
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  restartLoop();
+}
+
+function fillSettingsForm() {
+  document.getElementById('cfgWorkspace').value = settings.workspace;
+  document.getElementById('cfgRepo').value = settings.repo;
+  document.getElementById('cfgEmail').value = settings.email;
+  document.getElementById('cfgToken').value = settings.token;
+  document.getElementById('cfgInterval').value = settings.interval;
+  document.getElementById('cfgHideDrafts').checked = !!settings.hideDrafts;
+  document.getElementById('evtNew').checked = settings.evtNew !== false;
+  document.getElementById('evtUpdated').checked = settings.evtUpdated !== false;
+  document.getElementById('evtReview').checked = settings.evtReview !== false;
+  document.getElementById('evtBuild').checked = settings.evtBuild !== false;
+}
+
+function loadWatched() {
+  try {
+    const raw = localStorage.getItem(WATCH_KEY);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch (e) {}
+  return new Set();
+}
+
+function saveWatched() {
+  localStorage.setItem(WATCH_KEY, JSON.stringify([...watched]));
+}
+
+function loadWatchedBuilds() {
+  try {
+    const raw = localStorage.getItem(WATCH_BUILDS_KEY);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch (e) {}
+  return new Set();
+}
+
+function saveWatchedBuilds() {
+  localStorage.setItem(WATCH_BUILDS_KEY, JSON.stringify([...watchedBuilds]));
+}
+
+function loadBranches() {
+  try {
+    const raw = localStorage.getItem(BRANCHES_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return [];
+}
+
+function saveBranches() {
+  localStorage.setItem(BRANCHES_KEY, JSON.stringify(availableBranches));
+}
+
+function loadPassedBuilds() {
+  try {
+    const raw = localStorage.getItem(PASSED_BUILDS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return {};
+}
+
+function savePassedBuilds() {
+  localStorage.setItem(PASSED_BUILDS_KEY, JSON.stringify(passedBuildByPr));
+}
+
+function trackedBranch(name) {
+  return name && !name.startsWith('feature/');
+}
+
+const FIXED_WATCH_BRANCHES = ['PROD', 'QA', 'UAT-PROD'];
+
+function setWatchBranch(name, on) {
+  if (on) watchBranches.add(name); else watchBranches.delete(name);
+  settings.watchBranches = [...watchBranches];
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  renderWatchBranchPanel();
+  renderAttention(lastRows);
+}
+
+function renderWatchBranchPanel() {
+  const box = document.getElementById('branchChecks');
+  const fixedPresent = FIXED_WATCH_BRANCHES.filter(b => availableBranches.includes(b));
+  const customWatched = [...watchBranches].filter(b => !FIXED_WATCH_BRANCHES.includes(b));
+
+  let html = '';
+  if (!availableBranches.length) {
+    html += '<span class="muted" style="font-size:12px">Conecta para listar las ramas destino.</span>';
+  } else if (!fixedPresent.length) {
+    html += '<span class="muted" style="font-size:12px">Ninguna rama PROD/QA/UAT-PROD encontrada en este repositorio.</span>';
+  } else {
+    html += fixedPresent.map(b =>
+      `<label><input type="checkbox" data-watch-branch="${escapeHtml(b)}" ${watchBranches.has(b) ? 'checked' : ''}>${escapeHtml(b)}</label>`
+    ).join('');
+  }
+  box.innerHTML = html;
+  box.querySelectorAll('[data-watch-branch]').forEach(cb => cb.addEventListener('change', () => setWatchBranch(cb.dataset.watchBranch, cb.checked)));
+
+  const customBox = document.getElementById('customWatchBranches');
+  customBox.innerHTML = customWatched.map(b =>
+    `<span class="pill">${escapeHtml(b)} <button data-remove-branch="${escapeHtml(b)}" title="Dejar de vigilar" style="padding:0 2px;border:none;background:none;color:var(--text-dim);cursor:pointer">✕</button></span>`
+  ).join('');
+  customBox.querySelectorAll('[data-remove-branch]').forEach(btn => btn.addEventListener('click', () => setWatchBranch(btn.dataset.removeBranch, false)));
+}
+
+function renderBranchFilterSelect() {
+  [document.getElementById('filterBranch'), document.getElementById('filterBuildBranch')].forEach(select => {
+    const chosen = select.value;
+    select.innerHTML = '<option value="">Todas las ramas destino</option>' +
+      availableBranches.map(b => `<option value="${escapeHtml(b)}" ${b === chosen ? 'selected' : ''}>${escapeHtml(b)}</option>`).join('');
+  });
+}
+
+async function toggleWatch(prId) {
+  if (!('Notification' in window)) {
+    showBanner('Este navegador no soporta notificaciones de escritorio.');
+    return;
+  }
+  if (watched.has(prId)) {
+    watched.delete(prId);
+    saveWatched();
+    renderTable(lastRows);
+    return;
+  }
+  let perm = Notification.permission;
+  if (perm === 'default') perm = await Notification.requestPermission();
+  if (perm !== 'granted') {
+    showBanner(`Notificaciones no concedidas (permiso: "${perm}"). Revisa el candado/i junto a la URL del navegador, o en Windows: Configuración > Sistema > Notificaciones, que Chrome/Edge tenga notificaciones activadas.`);
+    return;
+  }
+  watched.add(prId);
+  saveWatched();
+  renderTable(lastRows);
+  const row = findRow(prId);
+  createNotification(
+    `Vigilando PR #${prId}`,
+    { body: `Te avisaré cuando el pipeline termine. Estado actual: ${row ? row.status.label : 'desconocido'}.`, tag: `oca-watch-confirm-${prId}` }
+  );
+}
+
+async function toggleWatchBuild(uuid) {
+  if (!('Notification' in window)) {
+    showBanner('Este navegador no soporta notificaciones de escritorio.');
+    return;
+  }
+  if (watchedBuilds.has(uuid)) {
+    watchedBuilds.delete(uuid);
+    saveWatchedBuilds();
+    renderBuildsTable(lastBuilds);
+    return;
+  }
+  let perm = Notification.permission;
+  if (perm === 'default') perm = await Notification.requestPermission();
+  if (perm !== 'granted') {
+    showBanner(`Notificaciones no concedidas (permiso: "${perm}"). Revisa el candado/i junto a la URL del navegador, o en Windows: Configuración > Sistema > Notificaciones, que Chrome/Edge tenga notificaciones activadas.`);
+    return;
+  }
+  watchedBuilds.add(uuid);
+  saveWatchedBuilds();
+  renderBuildsTable(lastBuilds);
+  const build = lastBuilds.find(b => b.uuid === uuid);
+  createNotification(
+    `Vigilando build #${build ? build.buildNumber : ''}`,
+    { body: `Te avisaré cuando termine. Estado actual: ${build ? build.status.label : 'desconocido'}.`, tag: `oca-build-watch-confirm-${uuid}` }
+  );
+}
+
+function createNotification(title, options) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return null;
+  try {
+    const n = new Notification(title, options);
+    n.onerror = (ev) => console.error('Notification onerror', title, ev);
+    return n;
+  } catch (e) {
+    console.error('No se pudo crear la Notification', title, e);
+    showBanner(`El navegador concedió el permiso pero falló al mostrar la notificación: ${String(e.message || e)}. Revisa las notificaciones de Chrome/Edge en Windows (Configuración > Sistema > Notificaciones) y que "No molestar"/Focus Assist esté desactivado.`);
+    return null;
+  }
+}
+
+function pipelineUrl(pipeline) {
+  return pipeline ? `https://bitbucket.org/${settings.workspace}/${settings.repo}/pipelines/results/${pipeline.build_number}` : '';
+}
+
+function notifyDone(pr, status, pipeline) {
+  const prUrl = ((pr.links || {}).html || {}).href || '';
+  const buildUrl = pipelineUrl(pipeline);
+  const body = [
+    pr.title,
+    `${(pr.source.branch || {}).name} → ${(pr.destination.branch || {}).name}`,
+    prUrl ? `PR: ${prUrl}` : '',
+    buildUrl ? `Build: ${buildUrl}` : ''
+  ].filter(Boolean).join('\n');
+  const n = createNotification(`Pipeline ${status.label} — PR #${pr.id}`, {
+    body,
+    tag: `oca-pr-${pr.id}`,
+    renotify: true
+  });
+  if (!n) return;
+  n.onclick = () => { window.focus(); if (prUrl) window.open(prUrl, '_blank'); };
+}
+
+function notifyBuildDone(build) {
+  const buildUrl = pipelineUrl(build.pipeline);
+  const body = [
+    build.target,
+    build.prId ? `PR #${build.prId}` : 'Sin PR (push directo)',
+    buildUrl ? `Build: ${buildUrl}` : ''
+  ].filter(Boolean).join('\n');
+  const n = createNotification(`Build ${build.status.label} — #${build.buildNumber}`, {
+    body,
+    tag: `oca-build-${build.uuid}`,
+    renotify: true
+  });
+  if (!n) return;
+  n.onclick = () => { window.focus(); if (buildUrl) window.open(buildUrl, '_blank'); };
+}
+
+function beep() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = audioCtx.currentTime;
+    for (const offset of [0, 0.22]) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.25, now + offset + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.18);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.2);
     }
-    function schedule(delay = Number($('refresh').value || 60000)) { clearInterval(timer); timer = setInterval(refresh, delay); }
-    $('setup-form').addEventListener('submit', event => { event.preventDefault(); previous = {}; save(); if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); refresh(); schedule(); });
-    $('refresh').addEventListener('change', () => { save(); schedule(); }); $('branch-filter').addEventListener('change', refresh); $('refresh-now').addEventListener('click', refresh);
-    $('forget').addEventListener('click', () => { localStorage.removeItem(KEY); fields.forEach(id => { if ($(id).type === 'checkbox') $(id).checked = id !== 'event-build'; else $(id).value = id === 'refresh' ? '60000' : ''; }); availableBranches=[]; watchBranches=[]; currentUser=null; previous={}; renderBranchFilters(); $('table-wrap').innerHTML='<div class="empty">Token removed from this browser profile.</div>'; $('connection').textContent='Not connected'; $('jobs-running').hidden = true; setStatus('Token removed.'); clearInterval(timer); postStatus(); });
-    load();
-    if ($('token').value && $('workspace').value && $('repo').value) {
-      refresh();
-      schedule();
+  } catch (e) { console.error('No se pudo reproducir el pitido', e); }
+}
+
+function flashTitle(text) {
+  if (titleFlashTimer) return;
+  let showAlert = true;
+  titleFlashTimer = setInterval(() => {
+    document.title = showAlert ? text : ORIGINAL_TITLE;
+    showAlert = !showAlert;
+  }, 1000);
+}
+
+function stopFlashTitle() {
+  if (titleFlashTimer) {
+    clearInterval(titleFlashTimer);
+    titleFlashTimer = null;
+  }
+  document.title = ORIGINAL_TITLE;
+}
+
+function checkWatchedCompletions(rows) {
+  let anyDone = false;
+  for (const r of rows) {
+    const prev = lastStatusByPr[r.pr.id];
+    const curr = r.status.code;
+    if (watched.has(r.pr.id) && prev && ACTIVE_CODES.has(prev) && TERMINAL_CODES.has(curr)) {
+      notifyDone(r.pr, r.status, r.pipeline);
+      beep();
+      anyDone = true;
     }
-  })();
-  </script>
+    lastStatusByPr[r.pr.id] = curr;
+  }
+  if (anyDone && document.hidden) flashTitle('🔴 Pipeline terminado — revisa el dashboard');
+}
+
+function checkWatchedBuildCompletions(builds) {
+  let anyDone = false;
+  for (const b of builds) {
+    const prev = lastBuildStatusByUuid[b.uuid];
+    const curr = b.status.code;
+    if (watchedBuilds.has(b.uuid) && prev && ACTIVE_CODES.has(prev) && TERMINAL_CODES.has(curr)) {
+      notifyBuildDone(b);
+      beep();
+      anyDone = true;
+    }
+    lastBuildStatusByUuid[b.uuid] = curr;
+  }
+  if (anyDone && document.hidden) flashTitle('🔴 Build terminado — revisa el dashboard');
+}
+
+// Avisos globales (PR nueva / actualizada / revision pedida / pipeline fallido),
+// independientes del boton de campana por-PR de arriba. Se comparan por un
+// "stamp" para no repetir el mismo aviso en cada poll.
+function checkGlobalEvents(rows) {
+  const next = {};
+  const events = [];
+  for (const r of rows) {
+    const stamp = `${r.pr.updated_on}|${r.status.code}|${r.reviewRequestedForMe}`;
+    next[r.pr.id] = stamp;
+    const old = lastEventStampByPr[r.pr.id];
+    if (old === undefined) {
+      if (settings.evtNew) events.push({ title: 'Nueva PR', text: `#${r.pr.id}: ${r.pr.title}`, pr: r.pr, pipeline: r.pipeline });
+    } else if (old !== stamp) {
+      if (r.reviewRequestedForMe && settings.evtReview) events.push({ title: 'Revisión solicitada', text: `#${r.pr.id}: ${r.pr.title}`, pr: r.pr, pipeline: r.pipeline });
+      else if (BUILD_FAILED_CODES.has(r.status.code) && settings.evtBuild) events.push({ title: 'Pipeline fallido', text: `#${r.pr.id}: ${r.pr.title} (${r.status.label})`, pr: r.pr, pipeline: r.pipeline });
+      else if (settings.evtUpdated) events.push({ title: 'PR actualizada', text: `#${r.pr.id}: ${r.pr.title}`, pr: r.pr, pipeline: r.pipeline });
+    }
+  }
+  lastEventStampByPr = next;
+  showGlobalEvents(events);
+}
+
+function eventLinkLines(ev) {
+  const prUrl = ((ev.pr.links || {}).html || {}).href || '';
+  const buildUrl = pipelineUrl(ev.pipeline);
+  return [prUrl ? `PR: ${prUrl}` : '', buildUrl ? `Build: ${buildUrl}` : ''].filter(Boolean);
+}
+
+function showGlobalEvents(events) {
+  if (!events.length) return;
+  for (const ev of events) {
+    const body = [ev.text, ...eventLinkLines(ev)].join('\n');
+    const n = createNotification(ev.title, { body, tag: `oca-event-${ev.pr.id}-${ev.title}` });
+    if (n) n.onclick = () => { window.focus(); const url = ((ev.pr.links || {}).html || {}).href; if (url) window.open(url, '_blank'); };
+  }
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    const title = events.length === 1 ? events[0].title : `${events.length} avisos de PR`;
+    const prUrlOf = ev => ((ev.pr.links || {}).html || {}).href || '';
+    const bodyHtml = events.map(ev => {
+      const prUrl = prUrlOf(ev);
+      const buildUrl = pipelineUrl(ev.pipeline);
+      const links = [
+        prUrl ? `<a href="${escapeHtml(prUrl)}" target="_blank" rel="noopener">Ver PR →</a>` : '',
+        buildUrl ? `<a class="build-link" href="${escapeHtml(buildUrl)}" target="_blank" rel="noopener">Ver build →</a>` : ''
+      ].filter(Boolean).join('');
+      return `<div class="alert-event"><p class="alert-text"><strong>${escapeHtml(ev.title)}</strong> — ${escapeHtml(ev.text)}</p>${links ? `<div class="alert-links">${links}</div>` : ''}</div>`;
+    }).join('');
+    document.getElementById('alertTitle').textContent = title;
+    document.getElementById('alertBody').innerHTML = bodyHtml;
+    document.getElementById('alertDialog').showModal();
+    beep();
+  }
+}
+
+function authHeader() {
+  const raw = `${settings.email}:${settings.token}`;
+  return 'Basic ' + btoa(unescape(encodeURIComponent(raw)));
+}
+
+function apiBase() {
+  return `https://api.bitbucket.org/2.0/repositories/${encodeURIComponent(settings.workspace)}/${encodeURIComponent(settings.repo)}`;
+}
+
+async function bbFetch(url) {
+  const res = await fetch(url, { headers: { Authorization: authHeader() } });
+  if (res.status === 429) {
+    const retryAfter = parseInt(res.headers.get('Retry-After') || '30', 10);
+    backoffUntil = Date.now() + retryAfter * 1000;
+    throw new Error(`Rate limited (429). Reintentando en ${retryAfter}s.`);
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} en ${url.replace(/https:\/\/api\.bitbucket\.org\/2\.0\/repositories\//,'')}: ${body.slice(0,180)}`);
+  }
+  return res.json();
+}
+
+async function fetchAllPages(firstUrl, maxPages) {
+  let url = firstUrl;
+  let out = [];
+  let pages = 0;
+  while (url && pages < maxPages) {
+    const data = await bbFetch(url);
+    out = out.concat(data.values || []);
+    url = data.next || null;
+    pages++;
+  }
+  return out;
+}
+
+function classifyPipeline(pipeline) {
+  if (!pipeline) return { code: 'none', label: STATUS_LABEL.none };
+  const state = pipeline.state || {};
+  const name = (state.name || '').toUpperCase();
+  if (name === 'PENDING') return { code: 'pending', label: STATUS_LABEL.pending };
+  if (name === 'PAUSED' || name === 'HALTED') return { code: 'halted', label: STATUS_LABEL.halted };
+  if (name === 'IN_PROGRESS') {
+    const stage = ((state.stage || {}).name || '').toUpperCase();
+    if (stage === 'PAUSED' || stage === 'HALTED') return { code: 'halted', label: STATUS_LABEL.halted };
+    return { code: 'running', label: STATUS_LABEL.running };
+  }
+  if (name === 'COMPLETED') {
+    const result = ((state.result || {}).name || '').toUpperCase();
+    if (result === 'SUCCESSFUL') return { code: 'success', label: STATUS_LABEL.success };
+    if (result === 'FAILED') return { code: 'failed', label: STATUS_LABEL.failed };
+    if (result === 'ERROR') return { code: 'error', label: STATUS_LABEL.error };
+    if (result === 'STOPPED') return { code: 'stopped', label: STATUS_LABEL.stopped };
+    return { code: 'stopped', label: result || 'Completado' };
+  }
+  return { code: 'none', label: name || STATUS_LABEL.none };
+}
+
+function classifyStep(step) {
+  const state = step.state || {};
+  const name = (state.name || '').toUpperCase();
+  const stage = ((state.stage || {}).name || '').toUpperCase();
+  if (name === 'PAUSED' || name === 'HALTED' || stage === 'PAUSED' || stage === 'HALTED') return 'halted';
+  if (name === 'IN_PROGRESS' || name === 'PENDING') return 'running';
+  if (name === 'COMPLETED') {
+    const result = ((state.result || {}).name || '').toUpperCase();
+    if (result === 'SUCCESSFUL') return 'success';
+    if (result === 'FAILED') return 'failed';
+    if (result === 'ERROR') return 'error';
+    return 'stopped';
+  }
+  return 'none';
+}
+
+async function fetchStepsForActivePipeline(pipeline) {
+  const uuid = pipeline.uuid;
+  const url = `${apiBase()}/pipelines/${encodeURIComponent(uuid)}/steps/?pagelen=100&fields=values.name,values.state`;
+  try {
+    const data = await bbFetch(url);
+    return (data.values || []).filter(s => /^Validate /.test(s.name || ''));
+  } catch (e) {
+    return [];
+  }
+}
+
+async function fetchAllSteps(pipelineUuid) {
+  const url = `${apiBase()}/pipelines/${encodeURIComponent(pipelineUuid)}/steps/?pagelen=100`;
+  const data = await bbFetch(url);
+  return data.values || [];
+}
+
+async function fetchStepLog(pipelineUuid, stepUuid) {
+  const url = `${apiBase()}/pipelines/${encodeURIComponent(pipelineUuid)}/steps/${encodeURIComponent(stepUuid)}/log`;
+  let res;
+  try {
+    res = await fetch(url, { headers: { Authorization: authHeader() } });
+  } catch (e) {
+    return { ok: false, blocked: true };
+  }
+  if (res.status === 404) return { ok: true, text: '(sin logs todavía)' };
+  if (!res.ok) return { ok: false, blocked: false, status: res.status };
+  const text = await res.text();
+  return { ok: true, text: text.length > 12000 ? '…\n' + text.slice(-12000) : text };
+}
+
+function stepDuration(step) {
+  const start = step.started_on ? new Date(step.started_on).getTime() : null;
+  const end = step.completed_on ? new Date(step.completed_on).getTime() : (start ? Date.now() : null);
+  if (!start || !end) return '';
+  const secs = Math.round((end - start) / 1000);
+  if (secs < 60) return `${secs}s`;
+  return `${Math.floor(secs / 60)}m ${secs % 60}s`;
+}
+
+function stepEnvName(step) {
+  return ((step.deployment || {}).environment || {}).name || '';
+}
+
+function timeAgo(iso) {
+  if (!iso) return '';
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return 'ahora';
+  if (mins < 60) return `hace ${mins}m`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `hace ${hours}h`;
+  return `hace ${Math.round(hours / 24)}d`;
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function reviewInfo(pr, currentUserAccountId) {
+  // pr.reviewers is the list of *invited* reviewers (present even before they act).
+  // pr.participants only carries an entry once someone has interacted with the PR
+  // (approved, requested changes, commented...), so it can't be used alone to find
+  // "who is a reviewer" — cross-reference the two by account_id instead.
+  const reviewers = pr.reviewers || [];
+  const participants = pr.participants || [];
+  const participantFor = (accountId) => participants.find(p => p.user && p.user.account_id === accountId);
+
+  let approved = 0;
+  let changesRequested = 0;
+  reviewers.forEach(rev => {
+    const p = participantFor(rev.account_id);
+    if (p && p.approved) approved++;
+    else if (p && p.state === 'changes_requested') changesRequested++;
+  });
+
+  const mineIsReviewer = reviewers.some(rev => rev.account_id === currentUserAccountId);
+  const mine = participantFor(currentUserAccountId);
+
+  return {
+    label: reviewers.length ? `${approved}/${reviewers.length} aprobado${approved === 1 ? '' : 's'}` : 'Sin revisores',
+    approvedCount: approved,
+    changesRequestedCount: changesRequested,
+    reviewRequestedForMe: mineIsReviewer && !(mine && mine.approved),
+    approvedByMe: !!(mine && mine.approved)
+  };
+}
+
+// Bitbucket's pipeline target.source/target.destination show up as plain
+// branch-name strings for PR-triggered pipelines in every response we've
+// seen, but the API isn't consistent about it across target types — accept
+// a nested {branch:{name}} shape too rather than assume one or the other.
+function branchNameFrom(val) {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  return (val.branch && val.branch.name) || val.name || '';
+}
+
+function buildRowFromPipeline(p) {
+  const status = classifyPipeline(p);
+  const target = p.target || {};
+  const isPr = target.type === 'pipeline_pullrequest_target';
+  const prId = isPr ? ((target.pullrequest || {}).id || null) : null;
+  const destBranch = isPr ? branchNameFrom(target.destination) : (target.ref_name || (target.selector || {}).pattern || '');
+  const srcBranch = isPr ? branchNameFrom(target.source) : destBranch;
+  const commit = ((target.commit || {}).hash || '').slice(0, 7);
+  const author = (p.creator && p.creator.display_name) || 'Desconocido';
+  return {
+    uuid: p.uuid,
+    buildNumber: p.build_number,
+    pipeline: p,
+    status,
+    isPr,
+    prId,
+    prUrl: prId ? `https://bitbucket.org/${settings.workspace}/${settings.repo}/pull-requests/${prId}` : '',
+    source: srcBranch || '?',
+    destination: destBranch || '?',
+    target: isPr ? `${srcBranch || '?'} → ${destBranch || '?'}` : (destBranch || '—'),
+    commit,
+    author,
+    createdOn: p.created_on
+  };
+}
+
+async function refresh() {
+  if (inFlight) return;
+  if (Date.now() < backoffUntil) return;
+  if (!settings.email || !settings.token || !settings.workspace || !settings.repo) {
+    showBanner('Configura workspace, repo, email y API token en ⚙ Config para empezar.');
+    return;
+  }
+  inFlight = true;
+  document.getElementById('refreshBtn').textContent = 'Actualizando…';
+  try {
+    currentUser = currentUser || await bbFetch(`https://api.bitbucket.org/2.0/user`);
+
+    if (!availableBranches.length || Date.now() - lastBranchSync > 600000) {
+      const branches = await fetchAllPages(`${apiBase()}/refs/branches?pagelen=100&sort=name`, 10);
+      availableBranches = branches.map(b => b.name).filter(trackedBranch);
+      lastBranchSync = Date.now();
+      saveBranches();
+      renderWatchBranchPanel();
+      renderBranchFilterSelect();
+    }
+
+    let prs = await fetchAllPages(
+      `${apiBase()}/pullrequests?state=OPEN&pagelen=50&sort=-created_on`,
+      5
+    );
+    const draftCount = prs.filter(pr => pr.draft).length;
+    if (settings.hideDrafts) prs = prs.filter(pr => !pr.draft);
+    const draftsStatusEl = document.getElementById('hideDraftsStatus');
+    if (draftsStatusEl) {
+      draftsStatusEl.textContent = draftCount
+        ? (settings.hideDrafts ? `(${draftCount} oculta${draftCount === 1 ? '' : 's'})` : `(${draftCount} draft${draftCount === 1 ? '' : 's'} visible${draftCount === 1 ? '' : 's'})`)
+        : '(ninguna draft en este momento)';
+    }
+    const pipelines = await fetchAllPages(
+      `${apiBase()}/pipelines/?sort=-created_on&pagelen=100`,
+      2
+    );
+
+    // pipelines[] is sorted -created_on, so each per-PR bucket stays latest-first.
+    const pipelinesByPr = new Map();
+    for (const p of pipelines) {
+      const target = p.target || {};
+      if (target.type !== 'pipeline_pullrequest_target') continue;
+      const prId = (target.pullrequest || {}).id;
+      if (!prId) continue;
+      if (!pipelinesByPr.has(prId)) pipelinesByPr.set(prId, []);
+      pipelinesByPr.get(prId).push(p);
+    }
+
+    const rows = [];
+    for (const pr of prs) {
+      const prPipelines = pipelinesByPr.get(pr.id) || [];
+      const pipeline = prPipelines[0] || null;
+      const status = classifyPipeline(pipeline);
+      const review = reviewInfo(pr, currentUser.account_id);
+      let steps = [];
+      if (pipeline && (status.code === 'running' || status.code === 'pending' || status.code === 'halted')) {
+        steps = await fetchStepsForActivePipeline(pipeline);
+      }
+
+      // A rerun (manual retry, or a new push after approval) can knock the
+      // latest pipeline out of 'success' — remember the last build that DID
+      // pass so it never looks like the PR never had a green build.
+      const successInWindow = prPipelines.find(p => classifyPipeline(p).code === 'success');
+      if (successInWindow) {
+        passedBuildByPr[pr.id] = { buildNumber: successInWindow.build_number };
+      }
+      const passedBuild = passedBuildByPr[pr.id] || null;
+
+      rows.push({
+        pr, pipeline, status, steps,
+        passedBuild: (passedBuild && status.code !== 'success') ? passedBuild : null,
+        reviewLabel: review.label,
+        reviewApprovedCount: review.approvedCount,
+        reviewChangesRequestedCount: review.changesRequestedCount,
+        reviewRequestedForMe: review.reviewRequestedForMe,
+        approvedByMe: review.approvedByMe
+      });
+    }
+
+    // Drop passed-build memory for PRs that are no longer open (merged/declined),
+    // so it doesn't grow forever.
+    const openPrIds = new Set(prs.map(pr => String(pr.id)));
+    Object.keys(passedBuildByPr).forEach(id => { if (!openPrIds.has(String(id))) delete passedBuildByPr[id]; });
+    savePassedBuilds();
+
+    checkWatchedCompletions(rows);
+    checkGlobalEvents(rows);
+    lastRows = rows;
+    renderAttention(rows);
+
+    const builds = pipelines.map(buildRowFromPipeline);
+    checkWatchedBuildCompletions(builds);
+    lastBuilds = builds;
+
+    renderSummaryForActiveTab();
+    renderTable(rows);
+    renderBuildsTable(builds);
+    document.getElementById('lastUpdated').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-ES');
+    hideBanner();
+  } catch (e) {
+    showBanner(String(e.message || e));
+  } finally {
+    inFlight = false;
+    document.getElementById('refreshBtn').textContent = 'Refrescar';
+  }
+}
+
+function renderSummary(rows) {
+  const counts = { running: 0, halted: 0, pending: 0, success: 0, failed: 0, error: 0, stopped: 0, none: 0 };
+  for (const r of rows) counts[r.status.code] = (counts[r.status.code] || 0) + 1;
+  const parts = [
+    ['running', 'Corriendo'], ['halted', 'Halted'], ['pending', 'Pendiente'],
+    ['failed', 'Failed'], ['error', 'Error'], ['success', 'Success']
+  ];
+  const watchedRows = rows.filter(r => watchBranches.has((r.pr.destination.branch || {}).name));
+  const runningJobs = watchedRows.filter(r => r.status.code === 'running' || r.status.code === 'pending').length;
+  const el = document.getElementById('summary');
+  let html = `<span class="pill">${rows.length} PRs abiertas</span>`;
+  html += parts.filter(([code]) => counts[code]).map(([code, label]) =>
+    `<span class="pill"><span class="dot ${code}"></span>${counts[code]} ${label}</span>`
+  ).join('');
+  if (watchBranches.size) html += `<span class="pill">${runningJobs} job${runningJobs === 1 ? '' : 's'} en ramas vigiladas</span>`;
+  el.innerHTML = html;
+}
+
+function renderBuildsSummary(builds) {
+  const counts = { running: 0, halted: 0, pending: 0, success: 0, failed: 0, error: 0, stopped: 0, none: 0 };
+  for (const b of builds) counts[b.status.code] = (counts[b.status.code] || 0) + 1;
+  const parts = [
+    ['running', 'Corriendo'], ['halted', 'Halted'], ['pending', 'Pendiente'],
+    ['failed', 'Failed'], ['error', 'Error'], ['success', 'Success']
+  ];
+  const el = document.getElementById('summary');
+  let html = `<span class="pill">${builds.length} builds</span>`;
+  html += parts.filter(([code]) => counts[code]).map(([code, label]) =>
+    `<span class="pill"><span class="dot ${code}"></span>${counts[code]} ${label}</span>`
+  ).join('');
+  el.innerHTML = html;
+}
+
+function renderSummaryForActiveTab() {
+  document.getElementById('tabPrsCount').textContent = `(${lastRows.length})`;
+  document.getElementById('tabBuildsCount').textContent = `(${lastBuilds.length})`;
+  if (activeTab === 'builds') renderBuildsSummary(lastBuilds);
+  else renderSummary(lastRows);
+}
+
+function selectTab(tab) {
+  activeTab = tab;
+  document.getElementById('tabPrs').classList.toggle('active', tab === 'prs');
+  document.getElementById('tabBuilds').classList.toggle('active', tab === 'builds');
+  document.getElementById('prView').style.display = tab === 'prs' ? '' : 'none';
+  document.getElementById('buildsView').style.display = tab === 'builds' ? '' : 'none';
+  renderSummaryForActiveTab();
+}
+
+function renderAttention(rows) {
+  const panel = document.getElementById('attentionPanel');
+  const list = document.getElementById('attentionList');
+  const items = rows.filter(r => watchBranches.has((r.pr.destination.branch || {}).name) &&
+    (r.reviewRequestedForMe || (r.approvedByMe && BUILD_FAILED_CODES.has(r.status.code))));
+  if (!items.length) { panel.classList.remove('show'); list.innerHTML = ''; return; }
+  panel.classList.add('show');
+  list.innerHTML = items.map(r => {
+    const url = ((r.pr.links || {}).html || {}).href || '#';
+    const reason = r.reviewRequestedForMe ? 'te piden revisión' : `pipeline ${r.status.label.toLowerCase()} tras tu aprobación`;
+    return `<li><a href="${url}" target="_blank" rel="noopener">#${r.pr.id} · ${escapeHtml(r.pr.title)}</a> <span class="reason">— ${escapeHtml(reason)}</span></li>`;
+  }).join('');
+}
+
+function renderTable(rows) {
+  const titleFilter = document.getElementById('filterTitle').value.trim().toLowerCase();
+  const authorFilter = document.getElementById('filterAuthor').value.trim().toLowerCase();
+  const branchFilter = document.getElementById('filterBranch').value;
+  const reviewFilter = document.getElementById('filterReview').value;
+  const pipelineFilter = document.getElementById('filterPipeline').value;
+  const tbody = document.getElementById('prTbody');
+  const empty = document.getElementById('emptyState');
+
+  let filtered = rows.filter(r => {
+    if (branchFilter && (r.pr.destination.branch || {}).name !== branchFilter) return false;
+    if (titleFilter) {
+      const hay = `${r.pr.title} ${(r.pr.source.branch||{}).name} ${(r.pr.destination.branch||{}).name}`.toLowerCase();
+      if (!hay.includes(titleFilter)) return false;
+    }
+    if (authorFilter && !((r.pr.author||{}).display_name || '').toLowerCase().includes(authorFilter)) return false;
+    if (reviewFilter === 'pending' && !r.reviewRequestedForMe) return false;
+    if (reviewFilter === 'approvedByMe' && !r.approvedByMe) return false;
+    if (reviewFilter === 'none' && (r.pr.reviewers || []).length) return false;
+    if (pipelineFilter === 'active' && !['running', 'pending', 'halted'].includes(r.status.code)) return false;
+    else if (pipelineFilter && pipelineFilter !== 'active' && r.status.code !== pipelineFilter) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    empty.textContent = rows.length ? 'Ninguna PR coincide con el filtro.' : 'No hay pull requests abiertas.';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = filtered.map(r => {
+    const pr = r.pr;
+    const prUrl = ((pr.links || {}).html || {}).href || '#';
+    const src = (pr.source.branch || {}).name || '?';
+    const dst = (pr.destination.branch || {}).name || '?';
+    const author = (pr.author || {}).display_name || '—';
+    const isWatched = watched.has(pr.id);
+    const badge = `<span class="badge ${r.status.code}"><span class="dot ${r.status.code}"></span>${r.status.label}</span>`;
+    const badgeHtml = r.pipeline
+      ? `<button class="badge-btn" data-open-modal="${pr.id}" title="Ver estado en vivo">${badge}</button>`
+      : badge;
+    const buildLinkHtml = r.pipeline
+      ? `<a class="build-link-btn" href="${pipelineUrl(r.pipeline)}" target="_blank" rel="noopener" title="Ver build en Bitbucket">↗</a>`
+      : '';
+    const relaunchHtml = (r.pipeline && RELAUNCHABLE_CODES.has(r.status.code))
+      ? `<a class="relaunch-btn" href="${pipelineUrl(r.pipeline)}" target="_blank" rel="noopener" title="Abrir en Bitbucket para relanzar el pipeline">↻</a>`
+      : '';
+    const passedBuildHtml = r.passedBuild
+      ? `<a class="passed-pill" href="https://bitbucket.org/${settings.workspace}/${settings.repo}/pipelines/results/${r.passedBuild.buildNumber}" target="_blank" rel="noopener" title="Ya tuvo un build exitoso (#${r.passedBuild.buildNumber}) aunque el último build es ${r.status.label}">✓ Pasó antes (#${r.passedBuild.buildNumber})</a>`
+      : '';
+    const chips = r.steps.map(s => {
+      const code = classifyStep(s);
+      const shortName = (s.name || '').replace('Validate ', '');
+      return `<span class="chip ${code}">${escapeHtml(shortName)}</span>`;
+    }).join('');
+    const rowClasses = [isWatched ? 'watched' : '', r.reviewRequestedForMe ? 'needs-review' : ''].filter(Boolean).join(' ');
+    return `
+      <tr class="${rowClasses}" data-pr-id="${pr.id}">
+        <td class="muted">#${pr.id}</td>
+        <td>
+          <div class="pr-title"><a href="${prUrl}" target="_blank" rel="noopener">${escapeHtml(pr.title)}</a></div>
+          <div class="branches">${escapeHtml(src)} → ${escapeHtml(dst)}</div>
+        </td>
+        <td>${escapeHtml(author)}</td>
+        <td>
+          <span class="review-badge ${r.reviewRequestedForMe ? 'needed' : ''}">${escapeHtml(r.reviewLabel)}${r.reviewRequestedForMe ? ' · tu turno' : ''}</span>
+          ${(r.reviewApprovedCount || r.reviewChangesRequestedCount) ? `<div class="review-icons">
+            ${r.reviewApprovedCount ? `<span class="review-icon approved" title="${r.reviewApprovedCount} aprobación${r.reviewApprovedCount === 1 ? '' : 'es'}">✓ ${r.reviewApprovedCount}</span>` : ''}
+            ${r.reviewChangesRequestedCount ? `<span class="review-icon changes" title="${r.reviewChangesRequestedCount} solicitud${r.reviewChangesRequestedCount === 1 ? '' : 'es'} de cambios">⚠ ${r.reviewChangesRequestedCount}</span>` : ''}
+          </div>` : ''}
+        </td>
+        <td><div class="pipeline-cell">${badgeHtml}${buildLinkHtml}${relaunchHtml}</div>${passedBuildHtml ? `<div class="chips">${passedBuildHtml}</div>` : ''}${chips ? `<div class="chips">${chips}</div>` : ''}</td>
+        <td class="muted">${timeAgo(pr.updated_on)}</td>
+        <td><button class="bell ${isWatched ? 'active' : ''}" data-watch="${pr.id}" title="${isWatched ? 'Dejar de vigilar' : 'Notificarme cuando termine'}">🔔</button></td>
+      </tr>`;
+  }).join('');
+}
+
+function findRow(prId) {
+  return lastRows.find(r => r.pr.id === prId);
+}
+
+function findBuildRow(uuid) {
+  return lastBuilds.find(b => b.uuid === uuid);
+}
+
+function renderBuildsTable(builds) {
+  const titleFilter = document.getElementById('filterBuildTitle').value.trim().toLowerCase();
+  const authorFilter = document.getElementById('filterBuildAuthor').value.trim().toLowerCase();
+  const branchFilter = document.getElementById('filterBuildBranch').value;
+  const linkedFilter = document.getElementById('filterBuildLinked').value;
+  const statusFilter = document.getElementById('filterBuildStatus').value;
+  const tbody = document.getElementById('buildsTbody');
+  const empty = document.getElementById('buildsEmptyState');
+
+  let filtered = builds.filter(b => {
+    if (branchFilter && b.destination !== branchFilter) return false;
+    if (titleFilter) {
+      const hay = `${b.source} ${b.destination} ${b.commit}`.toLowerCase();
+      if (!hay.includes(titleFilter)) return false;
+    }
+    if (authorFilter && !b.author.toLowerCase().includes(authorFilter)) return false;
+    if (linkedFilter === 'withPr' && !b.prId) return false;
+    if (linkedFilter === 'withoutPr' && b.prId) return false;
+    if (statusFilter === 'active' && !ACTIVE_CODES.has(b.status.code)) return false;
+    else if (statusFilter && statusFilter !== 'active' && b.status.code !== statusFilter) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    empty.textContent = builds.length ? 'Ningún build coincide con el filtro.' : 'No hay builds en la ventana consultada.';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = filtered.map(b => {
+    const isWatched = watchedBuilds.has(b.uuid);
+    const badge = `<span class="badge ${b.status.code}"><span class="dot ${b.status.code}"></span>${b.status.label}</span>`;
+    const buildLinkHtml = `<a class="build-link-btn" href="${pipelineUrl(b.pipeline)}" target="_blank" rel="noopener" title="Ver build en Bitbucket">↗</a>`;
+    const relaunchHtml = RELAUNCHABLE_CODES.has(b.status.code)
+      ? `<a class="relaunch-btn" href="${pipelineUrl(b.pipeline)}" target="_blank" rel="noopener" title="Abrir en Bitbucket para relanzar el pipeline">↻</a>`
+      : '';
+    const linkedHtml = b.prId
+      ? `<a class="linked-pr" href="${b.prUrl}" target="_blank" rel="noopener">PR #${b.prId} →</a>`
+      : `<span class="linked-pr muted">Sin PR (push directo)</span>`;
+    return `
+      <tr class="${isWatched ? 'watched' : ''}" data-build-uuid="${escapeHtml(b.uuid)}">
+        <td class="muted">#${b.buildNumber}</td>
+        <td>
+          <div class="pr-title">${escapeHtml(b.target)}</div>
+          <div class="branches">${escapeHtml(b.commit || 'sin commit')}</div>
+        </td>
+        <td>${escapeHtml(b.author)}</td>
+        <td>${linkedHtml}</td>
+        <td><div class="pipeline-cell">${badge}${buildLinkHtml}${relaunchHtml}</div></td>
+        <td class="muted">${timeAgo(b.createdOn)}</td>
+        <td><button class="bell ${isWatched ? 'active' : ''}" data-watch-build="${escapeHtml(b.uuid)}" title="${isWatched ? 'Dejar de vigilar' : 'Notificarme cuando termine'}">🔔</button></td>
+      </tr>`;
+  }).join('');
+}
+
+function openPipelineModal(prId) {
+  const row = findRow(prId);
+  if (!row || !row.pipeline) return;
+  if (modalState.pollTimer) clearInterval(modalState.pollTimer);
+  const pipelineUrl = `https://bitbucket.org/${settings.workspace}/${settings.repo}/pipelines/results/${row.pipeline.build_number}`;
+  modalState = { open: true, prId, pipelineUuid: row.pipeline.uuid, pipelineUrl, pollTimer: null, expandedSteps: new Set(), logCache: new Map() };
+  document.getElementById('modalTitle').textContent = `#${row.pr.id} · ${row.pr.title}`;
+  document.getElementById('modalBranches').textContent =
+    `${(row.pr.source.branch || {}).name || '?'} → ${(row.pr.destination.branch || {}).name || '?'}`;
+  const prUrl = ((row.pr.links || {}).html || {}).href || '#';
+  document.getElementById('modalLinks').innerHTML =
+    `<a href="${prUrl}" target="_blank" rel="noopener">Ver PR en Bitbucket</a> · ` +
+    `<a href="${pipelineUrl}" target="_blank" rel="noopener">Ver pipeline #${row.pipeline.build_number} en Bitbucket</a>`;
+  document.getElementById('modalOverlay').classList.add('open');
+  pollModalSteps();
+  modalState.pollTimer = setInterval(pollModalSteps, 4000);
+}
+
+function closePipelineModal() {
+  if (modalState.pollTimer) clearInterval(modalState.pollTimer);
+  modalState = { open: false, prId: null, pipelineUuid: null, pollTimer: null, expandedSteps: new Set(), logCache: new Map() };
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+async function pollModalSteps() {
+  if (!modalState.open) return;
+  const statusEl = document.getElementById('modalStatus');
+  try {
+    const steps = await fetchAllSteps(modalState.pipelineUuid);
+    statusEl.style.display = 'none';
+    await renderModalSteps(steps);
+    const allDone = steps.length > 0 && steps.every(s => TERMINAL_CODES.has(classifyStep(s)));
+    if (allDone && modalState.pollTimer) {
+      clearInterval(modalState.pollTimer);
+      modalState.pollTimer = null;
+    }
+  } catch (e) {
+    statusEl.style.display = 'block';
+    statusEl.textContent = 'Error cargando steps: ' + String(e.message || e);
+  }
+}
+
+async function renderModalSteps(steps) {
+  const container = document.getElementById('modalSteps');
+  const pieces = [];
+  for (const step of steps) {
+    const code = classifyStep(step);
+    const env = stepEnvName(step);
+    const duration = stepDuration(step);
+    const meta = [env, duration].filter(Boolean).join(' · ');
+    const expanded = modalState.expandedSteps.has(step.uuid);
+    pieces.push(`
+      <div class="step-row" data-step-uuid="${escapeHtml(step.uuid)}">
+        <span class="dot ${code}"></span>
+        <span class="step-name">${escapeHtml(step.name || 'step')}</span>
+        <span class="step-meta">${escapeHtml(meta)}</span>
+        <span class="step-toggle">${expanded ? '▴ ocultar log' : '▾ ver log'}</span>
+      </div>`);
+    if (expanded) {
+      const isFinal = TERMINAL_CODES.has(code);
+      let result = modalState.logCache.get(step.uuid);
+      if (result === undefined) {
+        result = await fetchStepLog(modalState.pipelineUuid, step.uuid);
+        if (isFinal && result.ok) modalState.logCache.set(step.uuid, result);
+      }
+      if (result.ok) {
+        pieces.push(`<div class="step-log"><pre>${escapeHtml(result.text)}</pre></div>`);
+      } else if (result.blocked) {
+        pieces.push(`<div class="step-log modal-empty">Bitbucket no permite cargar este log desde el navegador (sin cabeceras CORS en ese endpoint). <a href="${modalState.pipelineUrl}" target="_blank" rel="noopener">Ábrelo en Bitbucket →</a></div>`);
+      } else {
+        pieces.push(`<div class="step-log modal-empty">No se pudo cargar el log (HTTP ${result.status}). <a href="${modalState.pipelineUrl}" target="_blank" rel="noopener">Ábrelo en Bitbucket →</a></div>`);
+      }
+    }
+  }
+  container.innerHTML = pieces.join('') || '<div class="modal-empty">Sin steps todavía.</div>';
+}
+
+document.getElementById('modalSteps').addEventListener('click', (e) => {
+  const row = e.target.closest('.step-row');
+  if (!row) return;
+  const uuid = row.dataset.stepUuid;
+  if (modalState.expandedSteps.has(uuid)) modalState.expandedSteps.delete(uuid);
+  else modalState.expandedSteps.add(uuid);
+  pollModalSteps();
+});
+document.getElementById('modalClose').addEventListener('click', closePipelineModal);
+document.getElementById('modalOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'modalOverlay') closePipelineModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && modalState.open) closePipelineModal();
+});
+document.getElementById('prTbody').addEventListener('click', (e) => {
+  const watchBtn = e.target.closest('[data-watch]');
+  if (watchBtn) { toggleWatch(parseInt(watchBtn.dataset.watch, 10)); return; }
+  const modalBtn = e.target.closest('[data-open-modal]');
+  if (modalBtn) { openPipelineModal(parseInt(modalBtn.dataset.openModal, 10)); return; }
+});
+document.getElementById('buildsTbody').addEventListener('click', (e) => {
+  const watchBtn = e.target.closest('[data-watch-build]');
+  if (watchBtn) { toggleWatchBuild(watchBtn.dataset.watchBuild); return; }
+});
+document.getElementById('tabPrs').addEventListener('click', () => selectTab('prs'));
+document.getElementById('tabBuilds').addEventListener('click', () => selectTab('builds'));
+document.getElementById('testNotif').addEventListener('click', async () => {
+  const el = document.getElementById('notifStatus');
+  if (!('Notification' in window)) { el.textContent = 'Notification API no disponible en este navegador.'; return; }
+  let perm = Notification.permission;
+  if (perm === 'default') {
+    el.textContent = 'Esperando a que respondas al aviso de permiso del navegador…';
+    perm = await Notification.requestPermission();
+  }
+  el.textContent = `Permiso: ${perm}.`;
+  if (perm !== 'granted') {
+    el.textContent += ' No concedido: revisa el candado/i junto a la URL, o en Windows Configuración > Sistema > Notificaciones que Chrome/Edge esté permitido.';
+    return;
+  }
+  try {
+    const n = new Notification('Notificación de prueba', {
+      body: 'Si ves esto en el centro de notificaciones de Windows, funciona correctamente.',
+      tag: 'oca-test-' + Date.now()
+    });
+    n.onerror = (ev) => { el.textContent = 'Permiso concedido, pero el SO dio error al mostrarla (ver consola).'; console.error('Notification onerror', ev); };
+    n.onclick = () => window.focus();
+    el.textContent += ' Notificación creada ✓ — si no ves ningún aviso en Windows, es un bloqueo del sistema operativo, no de esta página.';
+  } catch (e) {
+    el.textContent = 'Permiso concedido pero new Notification() lanzó una excepción: ' + String(e.message || e);
+  }
+});
+
+function showBanner(msg) {
+  const b = document.getElementById('banner');
+  b.textContent = msg;
+  b.classList.add('show');
+}
+function hideBanner() {
+  document.getElementById('banner').classList.remove('show');
+}
+
+function tickCountdown() {
+  secondsLeft = Math.max(0, secondsLeft - 1);
+  document.getElementById('countdown').textContent = document.hidden ? '' : `(${secondsLeft}s)`;
+}
+
+function restartLoop() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  if (countdownTimer) clearInterval(countdownTimer);
+  secondsLeft = settings.interval;
+  refresh();
+  // Sigue refrescando aunque la pestaña esté oculta/minimizada: es lo que
+  // permite que las notificaciones (globales y de pipelines vigilados) salten
+  // estando fuera de foco. Chrome puede limitar timers en pestañas en segundo
+  // plano tras un rato, así que puede llegar con algo de retraso.
+  refreshTimer = setInterval(() => {
+    secondsLeft = settings.interval;
+    refresh();
+  }, settings.interval * 1000);
+  countdownTimer = setInterval(tickCountdown, 1000);
+}
+
+document.getElementById('settingsBtn').addEventListener('click', () => {
+  document.getElementById('settingsPanel').classList.toggle('open');
+});
+document.getElementById('saveSettings').addEventListener('click', () => {
+  saveSettingsFromForm();
+  document.getElementById('settingsPanel').classList.remove('open');
+});
+document.getElementById('cfgHideDrafts').addEventListener('change', (e) => {
+  // Aplica al instante en vez de esperar a "Guardar", para que no parezca
+  // que la casilla "no hace nada" hasta pulsar el boton.
+  settings.hideDrafts = e.target.checked;
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  refresh();
+});
+document.getElementById('testConn').addEventListener('click', async () => {
+  const el = document.getElementById('connTest');
+  const tmp = {
+    workspace: document.getElementById('cfgWorkspace').value.trim(),
+    repo: document.getElementById('cfgRepo').value.trim(),
+    email: document.getElementById('cfgEmail').value.trim(),
+    token: document.getElementById('cfgToken').value.trim()
+  };
+  const prevSettings = settings;
+  settings = { ...settings, ...tmp };
+  el.textContent = 'Probando…';
+  try {
+    const data = await bbFetch(`${apiBase()}/pullrequests?state=OPEN&pagelen=1`);
+    el.textContent = `✓ Conexión OK (${data.size ?? '?'} PRs abiertas)`;
+    el.style.color = 'var(--success)';
+  } catch (e) {
+    el.textContent = '✗ ' + String(e.message || e);
+    el.style.color = 'var(--failed)';
+  } finally {
+    settings = prevSettings;
+  }
+});
+document.getElementById('refreshBtn').addEventListener('click', () => { secondsLeft = settings.interval; refresh(); });
+document.getElementById('filterTitle').addEventListener('input', () => renderTable(lastRows));
+document.getElementById('filterAuthor').addEventListener('input', () => renderTable(lastRows));
+document.getElementById('filterBranch').addEventListener('change', () => renderTable(lastRows));
+document.getElementById('filterReview').addEventListener('change', () => renderTable(lastRows));
+document.getElementById('filterPipeline').addEventListener('change', () => renderTable(lastRows));
+document.getElementById('filterBuildTitle').addEventListener('input', () => renderBuildsTable(lastBuilds));
+document.getElementById('filterBuildAuthor').addEventListener('input', () => renderBuildsTable(lastBuilds));
+document.getElementById('filterBuildBranch').addEventListener('change', () => renderBuildsTable(lastBuilds));
+document.getElementById('filterBuildLinked').addEventListener('change', () => renderBuildsTable(lastBuilds));
+document.getElementById('filterBuildStatus').addEventListener('change', () => renderBuildsTable(lastBuilds));
+document.getElementById('addCustomBranch').addEventListener('click', () => {
+  const input = document.getElementById('customBranchInput');
+  const name = input.value.trim();
+  if (!name) return;
+  setWatchBranch(name, true);
+  input.value = '';
+});
+document.getElementById('customBranchInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('addCustomBranch').click(); }
+});
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    secondsLeft = settings.interval;
+    refresh();
+    stopFlashTitle();
+  }
+});
+// Desbloquea el AudioContext con la primera interacción real del usuario:
+// los navegadores no dejan sonar audio programático (el pitido de aviso)
+// hasta que ha habido al menos un gesto del usuario en la página.
+document.addEventListener('click', () => {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}, { once: true });
+
+fillSettingsForm();
+renderWatchBranchPanel();
+renderBranchFilterSelect();
+if (!settings.email || !settings.token || !settings.workspace || !settings.repo) {
+  document.getElementById('settingsPanel').classList.add('open');
+  showBanner('Configura workspace, repo, email y API token en ⚙ Config para empezar.');
+}
+restartLoop();
+</script>
 </body>
 </html>

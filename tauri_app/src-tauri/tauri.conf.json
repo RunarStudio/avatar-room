@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AI Avatar Room",
+  "version": "0.1.0",
+  "identifier": "studio.runar.avatar-room",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{
+      "label": "dashboard",
+      "title": "AI Avatar Room",
+      "width": 1200,
+      "height": 800,
+      "minWidth": 960,
+      "minHeight": 640,
+      "resizable": true,
+      "maximizable": true
+    }],
+    "security": { "csp": null }
+  },
+  "bundle": { "active": true, "targets": "all" }
+}

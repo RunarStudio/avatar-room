@@ -267,10 +267,16 @@ class MultiProgramScanner:
 
     def loop(self):
         while True:
-            self._scan()
+            self.scan_once()
             time.sleep(SESSION_SCAN_RATE)
 
-    def _scan(self):
+    def scan_once(self) -> None:
+        """Refresh all program snapshots synchronously.
+
+        The tkinter overlay uses :meth:`loop` in a background thread.  The
+        Tauri scanner sidecar uses this method directly to emit one complete
+        IPC snapshot at a time, without duplicating scanner behaviour.
+        """
         with self._lock:
             for pid, prog in self._programs.items():
                 try:
@@ -294,3 +300,8 @@ class MultiProgramScanner:
 
                 pid_sessions = [s for s in sessions if s.pid]
                 prog.pid = max(pid_sessions, key=lambda s: s.last_seen).pid if pid_sessions else 0
+
+    # Compatibility for any existing local automation that called the former
+    # private helper while Stage 1 was being developed.
+    def _scan(self):
+        self.scan_once()

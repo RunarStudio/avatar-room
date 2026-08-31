@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #111528; color: #eef2ff; }
+    a { color: #a9c7ff; text-decoration: none; }
+    a:hover { color: #cdd7f5; text-decoration: underline; }
+    * { box-sizing: border-box; }
+    .mono { font-family: ui-monospace, Consolas, monospace; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #111528; overflow: hidden;">
+
+  <header style="padding: 22px 30px 16px; border-bottom: 1px solid #29304b; flex: 0 0 auto;">
+    <p style="margin: 0; color: #8fa2ff; font-size: .7rem; font-weight: 800; letter-spacing: .14em;">AVATAR TERRAIN &#183; STAGE 2</p>
+    <h1 style="margin: 6px 0 0; font-size: 1.5rem; font-weight: 600; letter-spacing: -.02em;">Walking inside the window</h1>
+    <p style="margin: 7px 0 0; font-size: .86rem; color: #8b96b8; max-width: 900px;">The avatar leaves its 640&#215;200 box and walks the whole window. Terrain comes from the DOM, so the same physics later reads screen rectangles instead &#8212; nothing in the avatar changes.</p>
+  </header>
+
+  <div style="display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 22px; padding: 22px 30px 26px; flex: 1 1 auto; min-height: 0;">
+
+    <!-- Schematic -->
+    <section style="background: #171d35; border: 1px solid #29304b; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; min-height: 0;">
+      <p style="margin: 0 0 14px; color: #8fa2ff; font-size: .66rem; font-weight: 800; letter-spacing: .14em;">FLOORS ARE ELEMENT TOP EDGES</p>
+
+      <div style="position: relative; flex: 1 1 auto; border-radius: 12px; background: #101527; border: 1px solid #232c4d; overflow: hidden;">
+
+        <!-- window chrome, dimmed: this is the dashboard underneath -->
+        <div style="position: absolute; left: 0; right: 0; top: 0; height: 52px; border-bottom: 2px solid #ffdd44; background: #141a30;"></div>
+        <div style="position: absolute; left: 0; top: 52px; bottom: 0; width: 62px; border-right: 2px solid #ffdd44; background: #141a30;"></div>
+
+        <div style="position: absolute; left: 86px; top: 84px; width: 190px; height: 250px; border-radius: 10px; background: #1b2242; border: 1px solid #2b3557; border-top: 2px solid #ffdd44;"></div>
+        <div style="position: absolute; left: 300px; top: 84px; width: 190px; height: 250px; border-radius: 10px; background: #1b2242; border: 1px solid #2b3557; border-top: 2px solid #ffdd44;"></div>
+        <div style="position: absolute; left: 514px; top: 84px; width: 190px; height: 250px; border-radius: 10px; background: #1b2242; border: 1px solid #2b3557; border-top: 2px solid #ffdd44;"></div>
+
+        <div style="position: absolute; left: 86px; top: 366px; width: 404px; height: 128px; border-radius: 10px; background: #1b2242; border: 1px solid #2b3557; border-top: 2px solid #ffdd44;"></div>
+        <div style="position: absolute; left: 514px; top: 366px; width: 190px; height: 128px; border-radius: 10px; background: #1b2242; border: 1px solid #2b3557; border-top: 2px solid #ffdd44;"></div>
+
+        <!-- walls: the climbable vertical edges -->
+        <div style="position: absolute; left: 300px; top: 84px; width: 2px; height: 250px; background: #aa44ff;"></div>
+        <div style="position: absolute; left: 514px; top: 84px; width: 2px; height: 250px; background: #aa44ff;"></div>
+
+        <!-- avatar: walking a card's top edge -->
+        <div style="position: absolute; left: 140px; top: 44px; width: 25px; height: 40px; image-rendering: pixelated;">
+          <img src="caine-run.png" width="25" height="40" style="display: block; image-rendering: pixelated; filter: drop-shadow(0 0 5px #44ff8899);">
+        </div>
+        <div style="position: absolute; left: 168px; top: 52px; font-size: .64rem; color: #44ff88;" class="mono">walk</div>
+
+        <!-- avatar: falling between floors -->
+        <div style="position: absolute; left: 390px; top: 320px; width: 24px; height: 36px; opacity: .6; image-rendering: pixelated;">
+          <img src="caine-idle.png" width="24" height="36" style="display: block; image-rendering: pixelated; filter: drop-shadow(0 0 4px #ff884499);">
+        </div>
+        <div style="position: absolute; left: 396px; top: 300px; width: 1px; height: 46px; background: repeating-linear-gradient(#ff8844 0 4px, transparent 4px 8px);"></div>
+        <div style="position: absolute; left: 408px; top: 306px; font-size: .64rem; color: #ff8844;" class="mono">fall</div>
+
+        <!-- avatar: climbing a wall -->
+        <div style="position: absolute; left: 500px; top: 172px; width: 24px; height: 36px; image-rendering: pixelated;">
+          <img src="caine-idle.png" width="24" height="36" style="display: block; image-rendering: pixelated; filter: drop-shadow(0 0 5px #aa44ff99);">
+        </div>
+        <div style="position: absolute; left: 532px; top: 196px; font-size: .64rem; color: #aa44ff;" class="mono">climb</div>
+
+        <!-- avatar: needs input, parked on the attention card -->
+        <div style="position: absolute; left: 148px; top: 328px; width: 25px; height: 38px; image-rendering: pixelated;">
+          <img src="caine-stand.png" width="25" height="38" style="display: block; image-rendering: pixelated; filter: drop-shadow(0 0 6px #ff44dd99);">
+        </div>
+        <div style="position: absolute; left: 160px; top: 306px; color: #ff44dd; font-size: 1rem; font-weight: 800;" class="mono">!</div>
+        <div style="position: absolute; left: 184px; top: 342px; font-size: .64rem; color: #ff44dd;" class="mono">needs input &#8212; stops here</div>
+
+        <!-- legend -->
+        <div style="position: absolute; right: 16px; bottom: 14px; display: flex; flex-direction: column; gap: 7px; padding: 11px 13px; border: 1px solid #2b3557; border-radius: 9px; background: #141a30;">
+          <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 18px; height: 2px; background: #ffdd44;"></span><span style="font-size: .66rem; color: #b8c0df;">floor &#183; element top edge</span></div>
+          <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 2px; height: 14px; background: #aa44ff; margin: 0 8px;"></span><span style="font-size: .66rem; color: #b8c0df;">wall &#183; climbable side</span></div>
+        </div>
+      </div>
+
+      <p style="margin: 14px 0 0; font-size: .76rem; color: #8b96b8;">Any element carrying <span class="mono" style="color: #cdd7f5;">data-terrain</span> contributes a floor at its top edge. Nothing else is special-cased &#8212; add the attribute, the avatar can stand on it.</p>
+    </section>
+
+    <!-- Spec -->
+    <section style="display: flex; flex-direction: column; gap: 14px; min-height: 0;">
+
+      <div style="background: #171d35; border: 1px solid #29304b; border-radius: 16px; padding: 18px 20px;">
+        <p style="margin: 0 0 11px; color: #8fa2ff; font-size: .66rem; font-weight: 800; letter-spacing: .14em;">THE OVERLAY</p>
+        <div class="mono" style="font-size: .73rem; line-height: 1.7; color: #b8c0df;">
+          <div>&lt;canvas id="avatar-layer"&gt;</div>
+          <div style="padding-left: 14px; color: #8b96b8;">position: fixed; inset: 0;</div>
+          <div style="padding-left: 14px; color: #8b96b8;">pointer-events: none;</div>
+          <div style="padding-left: 14px; color: #8b96b8;">z-index: 50;</div>
+        </div>
+        <p style="margin: 11px 0 0; font-size: .76rem; color: #8b96b8;">One canvas over the whole window. Clicks pass through to the dashboard; the avatar is hit-tested against its own rect on a window listener, so clicking <em>it</em> still focuses that session.</p>
+      </div>
+
+      <div style="background: #171d35; border: 1px solid #29304b; border-radius: 16px; padding: 18px 20px;">
+        <p style="margin: 0 0 11px; color: #8fa2ff; font-size: .66rem; font-weight: 800; letter-spacing: .14em;">PHYSICS &#8212; UNCHANGED FROM AVATAR.TS</p>
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 6px 14px;">
+          <span style="font-size: .78rem; color: #b8c0df;">GRAVITY</span><span class="mono" style="font-size: .78rem; color: #eef2ff;">0.55</span>
+          <span style="font-size: .78rem; color: #b8c0df;">WALK_SPEED</span><span class="mono" style="font-size: .78rem; color: #eef2ff;">1.8</span>
+          <span style="font-size: .78rem; color: #b8c0df;">WALL_CLIMB_SPEED</span><span class="mono" style="font-size: .78rem; color: #eef2ff;">1.4</span>
+          <span style="font-size: .78rem; color: #b8c0df;">WALL_CLIMB_CHANCE</span><span class="mono" style="font-size: .78rem; color: #eef2ff;">0.4</span>
+          <span style="font-size: .78rem; color: #b8c0df;">sprite</span><span class="mono" style="font-size: .78rem; color: #eef2ff;">32 &#215; 32</span>
+          <span style="font-size: .78rem; color: #b8c0df;">tick</span><span class="mono" style="font-size: .78rem; color: #eef2ff;">50ms &#183; 20 FPS</span>
+        </div>
+      </div>
+
+      <div style="background: #171d35; border: 1px solid #29304b; border-radius: 16px; padding: 18px 20px;">
+        <p style="margin: 0 0 11px; color: #8fa2ff; font-size: .66rem; font-weight: 800; letter-spacing: .14em;">RECOMPUTE ON LAYOUT CHANGE</p>
+        <p style="margin: 0; font-size: .78rem; color: #b8c0df; line-height: 1.6;">A <span class="mono" style="color: #cdd7f5;">ResizeObserver</span> on the stage plus a scroll listener rebuilds the floor list. Expanding a column moves the ground under the avatar mid&#8209;stride &#8212; it falls and re&#8209;settles on its own. That is the intended behaviour, not a bug to suppress.</p>
+      </div>
+
+      <div style="background: linear-gradient(145deg, #212a50, #171d35); border: 1px solid #34406b; border-radius: 16px; padding: 18px 20px; flex: 1 1 auto;">
+        <p style="margin: 0 0 11px; color: #8fa2ff; font-size: .66rem; font-weight: 800; letter-spacing: .14em;">LATER: WALKING THE DESKTOP</p>
+        <p style="margin: 0 0 12px; font-size: .78rem; color: #b8c0df; line-height: 1.6;">Put one seam in now and the desktop version costs a single new class:</p>
+        <div class="mono" style="font-size: .73rem; line-height: 1.75; color: #b8c0df; border-left: 2px solid #4a568f; padding-left: 12px;">
+          <div style="color: #8fa2ff;">interface TerrainSource {</div>
+          <div style="padding-left: 12px;">getFloors(): Segment[]</div>
+          <div style="padding-left: 12px;">getWalls(): Segment[]</div>
+          <div style="color: #8fa2ff;">}</div>
+          <div style="margin-top: 8px; color: #63dc9a;">DomTerrain &#8212; now, from getBoundingClientRect()</div>
+          <div style="color: #7f8cb0;">ScreenTerrain &#8212; later, window rects from Rust</div>
+        </div>
+        <p style="margin: 12px 0 0; font-size: .76rem; color: #8b96b8; line-height: 1.6;">The avatar never learns which one it is standing on. Swapping to the desktop means a transparent click&#8209;through Tauri window plus the second implementation &#8212; no physics rewrite.</p>
+      </div>
+
+    </section>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

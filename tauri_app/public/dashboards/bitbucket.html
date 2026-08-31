@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Avatar Room · Bitbucket PR Dashboard</title>
+  <style>
+    :root { color-scheme: dark; --bg:#101521; --panel:#182235; --line:#2c3b56; --text:#e8efff; --muted:#9aacca; --good:#5fe09b; --warn:#f6c85f; --bad:#ff7385; --accent:#78a9ff; }
+    * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,Segoe UI,sans-serif; }
+    header { padding:24px max(20px, calc((100vw - 1280px)/2)); border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:18px; align-items:start; }
+    h1,h2,h3,p { margin:0; } h1 { font-size:22px; } h2 { font-size:16px; } .sub,.muted { color:var(--muted); } main { max-width:1280px; margin:0 auto; padding:20px; }
+    .grid { display:grid; grid-template-columns:360px minmax(0, 1fr); gap:18px; } .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; }
+    .setup { display:grid; gap:12px; } label { display:grid; gap:5px; color:var(--muted); font-size:12px; } input,select,button { font:inherit; } input,select { width:100%; background:#0f1727; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:8px 9px; }
+    button { cursor:pointer; color:#07101f; background:var(--accent); border:0; border-radius:6px; padding:8px 11px; font-weight:650; } button.secondary { background:#2a3a56; color:var(--text); } button.danger { background:#51303a; color:#ffb6c1; }
+    .actions { display:grid; gap:7px; margin-top:4px; } .actions label { display:flex; align-items:center; gap:8px; color:var(--text); font-size:13px; } .actions input { width:auto; accent-color:var(--accent); }
+    .row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; } .row > * { flex:1; } .row button { flex:0 0 auto; }
+    .status { margin-top:10px; min-height:22px; font-size:13px; color:var(--muted); } .status.error { color:var(--bad); } .status.ok { color:var(--good); }
+    .toolbar { display:flex; gap:9px; flex-wrap:wrap; align-items:center; margin:14px 0; } .toolbar select { width:auto; min-width:150px; } .toolbar .spacer { flex:1; } .pill { border:1px solid var(--line); border-radius:999px; padding:4px 9px; color:var(--muted); font-size:12px; }
+    table { width:100%; border-collapse:collapse; } th,td { text-align:left; padding:11px 8px; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; } td a { color:#a9c7ff; text-decoration:none; } td a:hover { text-decoration:underline; }
+    .badge { display:inline-block; border-radius:999px; padding:3px 7px; font-size:11px; font-weight:700; white-space:nowrap; } .open { color:#0f3221; background:var(--good); } .review { color:#36270a; background:var(--warn); } .failed { color:#481621; background:var(--bad); } .neutral { color:#d5e0f7; background:#34445f; }
+    .empty { padding:28px 8px; color:var(--muted); text-align:center; } dialog { border:1px solid var(--line); border-radius:10px; background:var(--panel); color:var(--text); max-width:520px; } dialog::backdrop { background:#050914bb; } dialog p { margin:10px 0; }
+    @media (max-width:800px) { .grid { grid-template-columns:1fr; } header { display:block; } .hide-small { display:none; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>Bitbucket PR Dashboard</h1><p class="sub">Read-only watchboard for a Bitbucket Cloud repository.</p></div>
+    <span id="connection" class="pill">Not connected</span>
+  </header>
+  <main class="grid">
+    <aside class="panel">
+      <h2>Initial setup</h2>
+      <p class="muted" style="margin:6px 0 14px">Create a Bitbucket API token with only <code>read:pullrequest:bitbucket</code>. The token remains in this browser profile.</p>
+      <form id="setup-form" class="setup">
+        <label>Bitbucket API token<input id="token" type="password" autocomplete="off" placeholder="Paste access token"></label>
+        <label>Workspace<input id="workspace" required placeholder="your-workspace"></label>
+        <label>Repository slug<input id="repo" required placeholder="your-repository"></label>
+        <label>Refresh PR status<select id="refresh"><option value="1000">1 second</option><option value="5000">5 seconds</option><option value="10000">10 seconds</option><option value="60000" selected>60 seconds</option><option value="300000">5 minutes</option></select></label>
+        <div><label>Notify / flag relevant changes</label><div class="actions">
+          <label><input id="event-new" type="checkbox" checked>New PR into a watched branch</label>
+          <label><input id="event-updated" type="checkbox" checked>New commits or PR update</label>
+          <label><input id="event-review" type="checkbox" checked>Review requested from me</label>
+          <label><input id="event-build" type="checkbox">Failed PR build/check</label>
+        </div></div>
+        <div><label>Watch for approval (Avatar Room attention queue)</label>
+          <p class="muted" style="margin:2px 0 6px;font-size:11px">A PR targeting a checked branch surfaces there when it needs your approval, or breaks after you approved it.</p>
+          <div id="watch-branches" class="actions"><span class="muted" style="font-size:12px">Connect to list destination branches.</span></div>
+        </div>
+        <div class="row"><button type="submit">Save and connect</button><button id="forget" class="danger" type="button">Forget token</button></div>
+      </form>
+      <p id="setup-status" class="status">Enter a workspace and repo, then connect.</p>
+    </aside>
+    <section class="panel">
+      <div class="row"><div><h2>Open pull requests</h2><p id="scope" class="muted">Connect to retrieve destination branches.</p></div><button id="refresh-now" class="secondary">Refresh now</button></div>
+      <div class="toolbar"><label>Destination branch<select id="branch-filter"><option value="">All tracked branches</option></select></label><span class="spacer"></span><span id="jobs-running" class="pill" hidden>0 jobs running</span><span id="last-updated" class="pill">No data yet</span></div>
+      <div id="table-wrap"><div class="empty">No PR data loaded.</div></div>
+    </section>
+  </main>
+  <dialog id="alert-dialog"><h2 id="alert-title">PR update</h2><p id="alert-body"></p><form method="dialog"><button>Got it</button></form></dialog>
+  <script>
+  (() => {
+    const API = 'https://api.bitbucket.org/2.0';
+    const KEY = 'avatar-room.bitbucket-dashboard.v1';
+    const $ = id => document.getElementById(id);
+    const fields = ['token','workspace','repo','refresh','event-new','event-updated','event-review','event-build'];
+    let timer = null, running = false, previous = {}, availableBranches = [], currentUser = null, lastBranchSync = 0, watchBranches = [];
+
+    function settings() { return Object.fromEntries(fields.map(id => [id, $(id).type === 'checkbox' ? $(id).checked : $(id).value.trim()])); }
+    function save() { localStorage.setItem(KEY, JSON.stringify({ ...settings(), availableBranches, watchBranches })); }
+    function load() { try { const s = JSON.parse(localStorage.getItem(KEY) || '{}'); fields.forEach(id => { if (s[id] !== undefined) $(id).type === 'checkbox' ? $(id).checked = s[id] : $(id).value = s[id]; }); availableBranches = Array.isArray(s.availableBranches) ? s.availableBranches : []; watchBranches = Array.isArray(s.watchBranches) ? s.watchBranches : []; } catch {} renderBranchFilters(); postStatus(); }
+    function setStatus(message, kind='') { const n = $('setup-status'); n.textContent = message; n.className = `status ${kind}`; }
+    function authHeaders() { return { 'Accept':'application/json', 'Authorization':`Bearer ${$('token').value.trim()}` }; }
+    function endpoint(path, query={}) { const u = new URL(`${API}${path}`); Object.entries(query).forEach(([k,v]) => v !== '' && u.searchParams.set(k,v)); return u; }
+    async function request(path, query={}) { const response = await fetch(endpoint(path, query), { headers:authHeaders() }); if (response.status === 429) throw new Error('Bitbucket rate-limited this token. The dashboard will wait 60 seconds before retrying.'); if (!response.ok) throw new Error(`Bitbucket returned ${response.status}: ${await response.text()}`); return response.json(); }
+    async function allPages(path, query={}) { let url = endpoint(path, query).href, values = []; while (url) { const response = await fetch(url, { headers:authHeaders() }); if (!response.ok) throw new Error(`Bitbucket returned ${response.status}: ${await response.text()}`); const page = await response.json(); values.push(...(page.values || [])); url = page.next || ''; } return values; }
+    function tracked(branch) { return branch && !branch.startsWith('feature/'); }
+    function renderBranchFilters() { const select = $('branch-filter'), chosen = select.value; select.innerHTML = '<option value="">All tracked branches</option>'; availableBranches.forEach(branch => { const option = new Option(branch, branch); if (branch === chosen) option.selected = true; select.add(option); }); renderWatchBranches(); }
+    function renderWatchBranches() { const box = $('watch-branches'); if (!availableBranches.length) { box.innerHTML = '<span class="muted" style="font-size:12px">Connect to list destination branches.</span>'; return; } box.innerHTML = availableBranches.map(branch => `<label><input type="checkbox" data-watch="${esc(branch)}" ${watchBranches.includes(branch) ? 'checked' : ''}>${esc(branch)}</label>`).join(''); box.querySelectorAll('input[data-watch]').forEach(cb => cb.addEventListener('change', () => { const b = cb.dataset.watch; watchBranches = cb.checked ? [...new Set([...watchBranches, b])] : watchBranches.filter(x => x !== b); save(); refresh(); })); }
+    function formatDate(date) { return date ? new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(new Date(date)) : '—'; }
+    function esc(value) { const d = document.createElement('div'); d.textContent = value || ''; return d.innerHTML; }
+    function reviewers(pr) { const list = pr.participants || []; const approved = list.filter(x => x.approved).length; const requested = list.filter(x => x.role === 'REVIEWER').length; return requested ? `${approved}/${requested} approved` : 'No reviewers'; }
+    function buildBadge(pr) { const failed = pr.__buildFailed; if (failed) return '<span class="badge failed">CHECK FAILED</span>'; if (pr.__reviewRequested) return '<span class="badge review">YOUR REVIEW</span>'; return '<span class="badge open">OPEN</span>'; }
+    function render(prs) { const filter = $('branch-filter').value; const shown = prs.filter(pr => !filter || pr.destination.branch.name === filter); if (!shown.length) { $('table-wrap').innerHTML = '<div class="empty">No open pull requests match this branch.</div>'; return; }
+      $('table-wrap').innerHTML = `<table><thead><tr><th>PR</th><th>Destination</th><th>Author</th><th class="hide-small">Review</th><th class="hide-small">Updated</th><th>Status</th></tr></thead><tbody>${shown.map(pr => `<tr><td><a href="${esc(pr.links.html.href)}" target="_blank" rel="noreferrer">#${pr.id} · ${esc(pr.title)}</a><br><span class="muted">${esc(pr.source.branch?.name || 'source deleted')}</span></td><td>${esc(pr.destination.branch.name)}</td><td>${esc(pr.author?.display_name || 'Unknown')}</td><td class="hide-small">${reviewers(pr)}</td><td class="hide-small">${formatDate(pr.updated_on)}</td><td>${buildBadge(pr)}</td></tr>`).join('')}</tbody></table>`; }
+    async function addBuildStatus(prs, s) { if (!s['event-build']) return prs; await Promise.all(prs.map(async pr => { try { const statuses = await allPages(`/repositories/${encodeURIComponent(s.workspace)}/${encodeURIComponent(s.repo)}/pullrequests/${pr.id}/statuses`, { pagelen: 100 }); pr.__buildFailed = statuses.some(status => ['FAILED','ERROR','STOPPED'].includes(status.state)); } catch { pr.__buildFailed = false; } })); return prs; }
+    // Scoped to watched-branch PRs only, independent of the event-build
+    // toggle above (that toggle is for the update-toast opt-in; this feeds
+    // the Avatar Room attention queue and running-jobs count, which the
+    // user wants regardless of whether toasts are on).
+    async function addWatchedJobStatus(prs, s) { const targets = prs.filter(pr => watchBranches.includes(pr.destination.branch.name) && pr.__buildFailed === undefined); await Promise.all(targets.map(async pr => { try { const statuses = await allPages(`/repositories/${encodeURIComponent(s.workspace)}/${encodeURIComponent(s.repo)}/pullrequests/${pr.id}/statuses`, { pagelen: 100 }); pr.__jobStates = statuses.map(x => x.state); pr.__buildFailed = statuses.some(x => ['FAILED','ERROR','STOPPED'].includes(x.state)); } catch { pr.__jobStates = []; } })); }
+    function computeAttention(prs) { const watched = prs.filter(pr => watchBranches.includes(pr.destination.branch.name)); const attentionPRs = watched.filter(pr => pr.__reviewRequested || (pr.__approvedByMe && pr.__buildFailed)).map(pr => ({ id: pr.id, title: pr.title, destination: pr.destination.branch.name, source: pr.source.branch?.name || '', url: pr.links.html.href, reason: pr.__reviewRequested ? 'review' : 'failed', updatedOn: pr.updated_on })); const runningJobs = watched.reduce((n, pr) => n + (pr.__jobStates || []).filter(st => st === 'INPROGRESS').length, 0); return { attentionPRs, runningJobs }; }
+    function postStatus(attentionPRs, runningJobs) { try { window.parent.postMessage({ type: 'avatar-room:pr-status', connected: !!currentUser, watchBranches, attentionPRs: attentionPRs || [], runningJobs: runningJobs || 0 }, window.location.origin); } catch {} }
+    function eventsFor(prs, s) { const next = {}; const events = []; prs.forEach(pr => { const stamp = `${pr.updated_on}|${pr.__buildFailed}|${pr.__reviewRequested}`; next[pr.id] = stamp; const old = previous[pr.id]; if (old === undefined && s['event-new']) events.push(`New PR #${pr.id}: ${pr.title}`); else if (old && old !== stamp && ((pr.__buildFailed && s['event-build']) || (pr.__reviewRequested && s['event-review']) || s['event-updated'])) events.push(`Updated PR #${pr.id}: ${pr.title}`); }); previous = next; return events; }
+    function showEvents(events) { if (!events.length) return; const title = events.length === 1 ? 'PR update' : `${events.length} PR updates`; const body = events.slice(0,5).join('\n'); $('alert-title').textContent = title; $('alert-body').textContent = body; $('alert-dialog').showModal(); if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body }); }
+    async function refresh() { if (running) return; const s = settings(); if (!s.token || !s.workspace || !s.repo) { postStatus(); return; } running = true; $('refresh-now').disabled = true; setStatus('Refreshing PRs…'); try {
+        currentUser = currentUser || await request('/user');
+        const base = `/repositories/${encodeURIComponent(s.workspace)}/${encodeURIComponent(s.repo)}`;
+        // Branches are retrieved on first connection and then at most once every
+        // ten minutes. Fast PR polling must not multiply API calls unnecessarily.
+        const branchRequest = (!availableBranches.length || Date.now() - lastBranchSync > 600000)
+          ? allPages(`${base}/refs/branches`, { pagelen:100, sort:'name' }) : Promise.resolve(null);
+        const [branches, prs] = await Promise.all([branchRequest, allPages(`${base}/pullrequests`, { state:'OPEN', sort:'-updated_on', pagelen:50 })]);
+        if (branches) { availableBranches = branches.map(x => x.name).filter(tracked); lastBranchSync = Date.now(); save(); renderBranchFilters(); }
+        prs.forEach(pr => { const mine = (pr.participants || []).find(x => x.role === 'REVIEWER' && x.user?.account_id === currentUser.account_id); pr.__reviewRequested = !!mine && !mine.approved; pr.__approvedByMe = !!mine && !!mine.approved; });
+        await addBuildStatus(prs, s); render(prs); const events = eventsFor(prs, s); showEvents(events);
+        await addWatchedJobStatus(prs, s);
+        const { attentionPRs, runningJobs } = computeAttention(prs);
+        $('jobs-running').hidden = watchBranches.length === 0; $('jobs-running').textContent = `${runningJobs} job${runningJobs === 1 ? '' : 's'} running`;
+        postStatus(attentionPRs, runningJobs);
+        $('connection').textContent = `${s.workspace}/${s.repo}`; $('scope').textContent = `${availableBranches.length} non-feature destination branches retrieved and stored locally.`; $('last-updated').textContent = `Updated ${new Date().toLocaleTimeString()}`; setStatus(`Connected. ${prs.length} open PR${prs.length === 1 ? '' : 's'} found.`, 'ok');
+      } catch (error) { setStatus(error.message, 'error'); $('connection').textContent = 'Connection error'; postStatus(); if (String(error.message).includes('rate-limited')) schedule(60000); }
+      finally { running = false; $('refresh-now').disabled = false; }
+    }
+    function schedule(delay = Number($('refresh').value || 60000)) { clearInterval(timer); timer = setInterval(refresh, delay); }
+    $('setup-form').addEventListener('submit', event => { event.preventDefault(); previous = {}; save(); if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); refresh(); schedule(); });
+    $('refresh').addEventListener('change', () => { save(); schedule(); }); $('branch-filter').addEventListener('change', refresh); $('refresh-now').addEventListener('click', refresh);
+    $('forget').addEventListener('click', () => { localStorage.removeItem(KEY); fields.forEach(id => { if ($(id).type === 'checkbox') $(id).checked = id !== 'event-build'; else $(id).value = id === 'refresh' ? '60000' : ''; }); availableBranches=[]; watchBranches=[]; currentUser=null; previous={}; renderBranchFilters(); $('table-wrap').innerHTML='<div class="empty">Token removed from this browser profile.</div>'; $('connection').textContent='Not connected'; $('jobs-running').hidden = true; setStatus('Token removed.'); clearInterval(timer); postStatus(); });
+    load();
+    if ($('token').value && $('workspace').value && $('repo').value) {
+      refresh();
+      schedule();
+    }
+  })();
+  </script>
+</body>
+</html>

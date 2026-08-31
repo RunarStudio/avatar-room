@@ -33,3 +33,13 @@ dist/
 
 # Obsidian context files (this folder lives inside an Obsidian vault)
 .obsidian/
+
+# Node / Tauri frontend
+node_modules/
+tauri_app/dist/
+
+# Rust / Tauri build output
+tauri_app/src-tauri/target/
+
+# Tauri-generated schemas (regenerated on every build)
+tauri_app/src-tauri/gen/schemas/

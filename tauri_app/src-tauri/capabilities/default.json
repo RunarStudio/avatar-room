@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default permissions for the main dashboard window -- window basics plus the event bus main.ts uses to receive `scan`/`notification` from the Rust backend.",
+  "windows": ["dashboard"],
+  "permissions": [
+    "core:default",
+    "core:event:default"
+  ]
+}

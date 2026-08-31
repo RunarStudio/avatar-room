@@ -1,0 +1,31 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1440, "h": 900, "title": "Dashboard — expand to widescreen", "is_interactive": true },
+    { "file": "Narrow.dc.html", "x": 1560, "y": 0, "w": 960, "h": 640, "title": "Minimum window (960×640)" },
+    { "file": "AvatarTerrain.dc.html", "x": 0, "y": 1020, "w": 1440, "h": 900, "title": "Avatar terrain plan" }
+  ],
+  "annotations": [
+    {
+      "id": "how-to-try",
+      "x": 0,
+      "y": -150,
+      "w": 620,
+      "text": "Click any column's Expand button, or any icon in the left rail.\nThe chosen column takes the full stage; the rest collapse into the rail.\nPull Requests and My Work are stage-only — they open straight to widescreen."
+    },
+    {
+      "id": "why-expand",
+      "x": 1560,
+      "y": -150,
+      "w": 620,
+      "text": "The Bitbucket table is the reason this pattern exists: five columns of PR data\nare unreadable in a half-width grid cell. Everything else fits narrow."
+    },
+    {
+      "id": "terrain-note",
+      "x": 1560,
+      "y": 1020,
+      "w": 620,
+      "text": "The one thing worth building now is the TerrainSource seam.\nDomTerrain today, ScreenTerrain later — the avatar never learns the difference,\nso walking the desktop costs a new class, not a physics rewrite."
+    }
+  ],
+  "launch": { "view": "focused", "file": "Main.dc.html" }
+}

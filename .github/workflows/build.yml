@@ -1,0 +1,69 @@
+name: Build
+
+# PR-only: every push to master already goes through a PR, so this is the
+# single place a build gets exercised. Not a release pipeline — just proof
+# the PyInstaller build still works, with the exe downloadable from the
+# run's Artifacts section for manual testing/sharing.
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install "pyinstaller>=6.16"
+
+      - name: Build (onedir)
+        run: pyinstaller overlay.spec --noconfirm
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: avatar-room-windows-${{ github.event.pull_request.number }}
+          path: dist/avatar_room/
+          retention-days: 14
+
+  # Tauri port (Stage 2). Runs alongside the PyInstaller job -- the tkinter app
+  # is still the shipping build, so both must keep compiling until the port
+  # reaches parity.
+  tauri:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tauri_app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: tauri_app/src-tauri
+
+      - name: Install frontend dependencies
+        working-directory: tauri_app
+        run: npm ci
+
+      - name: Build Tauri bundle
+        working-directory: tauri_app
+        run: npm run tauri build
+
+      - name: Upload Tauri artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: avatar-room-tauri-${{ github.event.pull_request.number }}
+          path: tauri_app/src-tauri/target/release/bundle/
+          retention-days: 14

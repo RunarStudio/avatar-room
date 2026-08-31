@@ -1,0 +1,458 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #111528; color: #eef2ff; }
+    a { color: #a9c7ff; text-decoration: none; }
+    a:hover { color: #cdd7f5; text-decoration: underline; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div style="position: relative; width: 1440px; height: 900px; display: flex; flex-direction: column; background: #111528; overflow: hidden;">
+
+  <!-- Top bar -->
+  <header style="display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 18px 28px; border-bottom: 1px solid #29304b; flex: 0 0 auto;">
+    <div style="display: flex; align-items: baseline; gap: 14px;">
+      <p style="margin: 0; color: #8fa2ff; font-size: .72rem; font-weight: 800; letter-spacing: .14em;">AI AVATAR ROOM</p>
+      <h1 style="margin: 0; font-size: 1.15rem; font-weight: 600; letter-spacing: -.02em; color: #eef2ff;">Release manager workspace</h1>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="display: inline-flex; align-items: center; gap: 7px; background: #1a2543; border: 1px solid #293960; border-radius: 999px; padding: 7px 13px; font-size: .8rem; color: #b8c0df; white-space: nowrap;">
+        <i style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #63dc9a;"></i>
+        Scanner live &middot; 2 programs
+      </span>
+      <span style="display: inline-flex; align-items: center; gap: 7px; background: #1a2543; border: 1px solid #293960; border-radius: 999px; padding: 7px 13px; font-size: .8rem; color: #b8c0df; white-space: nowrap;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#78a9ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg>
+        {{ runningJobs }} job{{ jobsPlural }} running
+      </span>
+      <button style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: 1px solid #29304b; background: #171d35; border-radius: 9px; color: #98a5ca; cursor: pointer; padding: 0;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.31.4.56.71.7H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <div style="display: flex; flex: 1 1 auto; min-height: 0;">
+
+    <!-- Collapsed columns: the side menu -->
+    <nav style="flex: 0 0 84px; display: flex; flex-direction: column; gap: 4px; padding: 12px 8px; border-right: 1px solid #29304b;">
+      <sc-for list="{{rails}}" as="r" hint-placeholder-count="2">
+        <button onClick="{{ r.pick }}" title="{{ r.label }}" style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 11px 4px 9px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: #98a5ca; cursor: pointer; position: relative;">
+          <sc-if value="{{ r.isAttention }}" hint-placeholder-val="{{ true }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+          </sc-if>
+          <sc-if value="{{ r.isPrograms }}" hint-placeholder-val="{{ true }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><path d="M8 21h8"></path><path d="M12 17v4"></path></svg>
+          </sc-if>
+          <sc-if value="{{ r.isSessions }}" hint-placeholder-val="{{ true }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M6 9l3 3-3 3"></path><path d="M12 15h5"></path></svg>
+          </sc-if>
+          <sc-if value="{{ r.isPrs }}" hint-placeholder-val="{{ true }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M6 9v6"></path><circle cx="18" cy="18" r="3"></circle><path d="M18 15V9a4 4 0 0 0-4-4h-3"></path><path d="M13 8l-2-3 2-3"></path></svg>
+          </sc-if>
+          <sc-if value="{{ r.isWork }}" hint-placeholder-val="{{ true }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+          </sc-if>
+          <span style="font-size: .58rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; text-align: center; line-height: 1.25; color: #7f8cb0;">{{ r.label }}</span>
+          <sc-if value="{{ r.hasBadge }}" hint-placeholder-val="{{ true }}">
+            <span style="position: absolute; top: 7px; right: 12px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: {{ r.badgeBg }}; color: {{ r.badgeFg }}; font-size: .6rem; font-weight: 800; display: flex; align-items: center; justify-content: center;">{{ r.badge }}</span>
+          </sc-if>
+        </button>
+      </sc-for>
+    </nav>
+
+    <!-- Stage -->
+    <main style="flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: {{ stageCols }}; gap: 16px; padding: 16px 20px 20px; align-items: start;">
+
+      <!-- Attention -->
+      <sc-if value="{{ showAttention }}" hint-placeholder-val="{{ true }}">
+      <section style="background: linear-gradient(145deg, #212a50, #171d35); border: 1px solid #29304b; border-radius: 16px; padding: 0; overflow: hidden; height: {{ colHeight }};">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px 14px; border-bottom: 1px solid #2b3557;">
+          <div>
+            <p style="margin: 0; color: #8fa2ff; font-size: .68rem; font-weight: 800; letter-spacing: .14em;">ATTENTION QUEUE</p>
+            <h2 style="margin: 5px 0 0; font-size: 1.05rem; font-weight: 600; color: #eef2ff;">{{ attentionTitle }}</h2>
+            <p style="margin: 4px 0 0; font-size: .72rem; color: #8b96b8;">{{ attentionSubtitle }}</p>
+          </div>
+          <button onClick="{{ toggleAttention }}" style="display: inline-flex; align-items: center; gap: 6px; border: 1px solid #34406b; background: #1b2444; color: #b8c0df; border-radius: 8px; padding: 6px 10px; font-size: .72rem; cursor: pointer; flex: 0 0 auto;">
+            {{ attentionToggleLabel }}
+          </button>
+        </div>
+        <div style="display: flex; flex-direction: column; overflow-y: auto;">
+          <sc-for list="{{ attentionItems }}" as="a" hint-placeholder-count="4">
+            <div style="display: flex; align-items: flex-start; gap: 12px; padding: 14px 22px; border-bottom: 1px solid #232c4d;">
+              <span style="flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; background: {{ a.dot }};"></span>
+              <div style="flex: 1 1 auto; min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <p style="margin: 0; font-size: .86rem; color: #eef2ff; font-weight: 550;">{{ a.what }}</p>
+                  <sc-if value="{{ a.hasBadge }}" hint-placeholder-val="{{ true }}">
+                    <span style="flex: 0 0 auto; border-radius: 999px; padding: 2px 8px; font-size: .64rem; font-weight: 700; background: {{ a.badgeBg }}; color: {{ a.badgeFg }};">{{ a.badgeText }}</span>
+                  </sc-if>
+                </div>
+                <p style="margin: 3px 0 0; font-size: .74rem; color: #8b96b8; font-family: ui-monospace, Consolas, monospace;">{{ a.where }}</p>
+              </div>
+              <span style="flex: 0 0 auto; font-size: .72rem; color: #7f8cb0; white-space: nowrap;">{{ a.age }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+      </sc-if>
+
+      <!-- Programs -->
+      <sc-if value="{{ showPrograms }}" hint-placeholder-val="{{ true }}">
+      <section style="background: #171d35; border: 1px solid #29304b; border-radius: 16px; overflow: hidden; height: {{ colHeight }};">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 14px; border-bottom: 1px solid #232c4d;">
+          <div>
+            <p style="margin: 0; color: #8fa2ff; font-size: .68rem; font-weight: 800; letter-spacing: .14em;">PROGRAMS</p>
+            <h2 style="margin: 5px 0 0; font-size: 1.05rem; font-weight: 600; color: #eef2ff;">Claude · Cursor</h2>
+          </div>
+          <button onClick="{{ togglePrograms }}" style="display: inline-flex; align-items: center; gap: 6px; border: 1px solid #2f3960; background: #1b2444; color: #b8c0df; border-radius: 8px; padding: 6px 10px; font-size: .72rem; cursor: pointer;">
+            {{ programsToggleLabel }}
+          </button>
+        </div>
+        <div style="padding: 16px 22px 20px;">
+          <div style="position: relative; height: 128px; border-radius: 10px; background: #101527; border: 1px solid #232c4d; overflow: hidden;">
+            <!-- ground line the avatar walks along -->
+            <div style="position: absolute; left: 0; right: 0; bottom: 34px; border-top: 1px dashed #2b3557;"></div>
+            <div style="position: absolute; left: 26px; bottom: 34px; width: 42px; height: 42px; border-radius: 50%; background: {{ statusColor }}; opacity: 0.18; filter: blur(1px);"></div>
+            <div style="position: absolute; left: 34px; bottom: 34px; width: {{ caineW }}px; height: 44px; image-rendering: pixelated;">
+              <img src="{{ caineFrame }}" width="{{ caineW }}" height="44" style="display: block; image-rendering: pixelated;">
+            </div>
+            <sc-if value="{{ isNeedsInput }}" hint-placeholder-val="{{ true }}">
+              <div style="position: absolute; left: 42px; bottom: 74px; color: #ff44dd; font-family: ui-monospace, Consolas, monospace; font-size: 1.05rem; font-weight: 800;">!</div>
+            </sc-if>
+            <div style="position: absolute; left: 106px; bottom: 34px; width: {{ cursorW }}px; height: 44px; opacity: .5; image-rendering: pixelated;">
+              <img src="{{ cursorFrame }}" width="{{ cursorW }}" height="44" style="display: block; image-rendering: pixelated;">
+            </div>
+            <p style="position: absolute; right: 12px; bottom: 10px; margin: 0; font-size: .66rem; color: #6b7699; font-family: ui-monospace, Consolas, monospace;">walks the window · see Avatar Terrain</p>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 9px; margin-top: 16px;">
+            <sc-for list="{{ programs }}" as="p" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="width: 9px; height: 9px; border-radius: 50%; background: {{ p.dot }};"></span>
+                <span style="flex: 1 1 auto; font-size: .84rem; color: #eef2ff;">{{ p.name }}</span>
+                <span style="font-size: .74rem; color: #8b96b8; font-family: ui-monospace, Consolas, monospace;">{{ p.meta }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+      </sc-if>
+
+      <!-- Sessions -->
+      <sc-if value="{{ showSessions }}" hint-placeholder-val="{{ true }}">
+      <section style="background: #171d35; border: 1px solid #29304b; border-radius: 16px; overflow: hidden; height: {{ colHeight }};">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 14px; border-bottom: 1px solid #232c4d;">
+          <div>
+            <p style="margin: 0; color: #8fa2ff; font-size: .68rem; font-weight: 800; letter-spacing: .14em;">SESSIONS</p>
+            <h2 style="margin: 5px 0 0; font-size: 1.05rem; font-weight: 600; color: #eef2ff;">3 live</h2>
+          </div>
+          <button onClick="{{ toggleSessions }}" style="display: inline-flex; align-items: center; gap: 6px; border: 1px solid #2f3960; background: #1b2444; color: #b8c0df; border-radius: 8px; padding: 6px 10px; font-size: .72rem; cursor: pointer;">
+            {{ sessionsToggleLabel }}
+          </button>
+        </div>
+        <div style="display: flex; flex-direction: column;">
+          <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 11px 22px; border-bottom: 1px solid #232c4d; font-family: ui-monospace, Consolas, monospace; font-size: .74rem;">
+              <span style="width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: {{ s.dot }};"></span>
+              <span style="flex: 0 0 auto; color: #7f8cb0;">{{ s.id }}</span>
+              <span style="flex: 0 0 auto; color: {{ s.dot }};">{{ s.status }}</span>
+              <span style="flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #8b96b8;">{{ s.cwd }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+      </sc-if>
+
+      <!-- Pull Requests: the case for widescreen -->
+      <sc-if value="{{ showPrs }}" hint-placeholder-val="{{ true }}">
+      <section style="background: #171d35; border: 1px solid #29304b; border-radius: 16px; overflow: hidden; height: {{ colHeight }};">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 14px; border-bottom: 1px solid #232c4d;">
+          <div>
+            <p style="margin: 0; color: #8fa2ff; font-size: .68rem; font-weight: 800; letter-spacing: .14em;">PULL REQUESTS</p>
+            <h2 style="margin: 5px 0 0; font-size: 1.05rem; font-weight: 600; color: #eef2ff;">Bitbucket · read-only watchboard</h2>
+          </div>
+          <button onClick="{{ collapse }}" style="display: inline-flex; align-items: center; gap: 6px; border: 1px solid #2f3960; background: #1b2444; color: #b8c0df; border-radius: 8px; padding: 6px 10px; font-size: .72rem; cursor: pointer;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v18"></path><path d="M16 9l-3 3 3 3"></path></svg>
+            Collapse
+          </button>
+        </div>
+        <!-- embedded page keeps its own palette; the shell only frames it -->
+        <div style="margin: 14px 16px 16px; border: 1px solid #2c3b56; border-radius: 10px; background: #101521; overflow: hidden; height: 604px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid #2c3b56;">
+            <div>
+              <p style="margin: 0; font-size: .95rem; font-weight: 600; color: #e8efff;">Open pull requests</p>
+              <p style="margin: 3px 0 0; font-size: .74rem; color: #9aacca;">runar-studio / release-harness · 4 tracked branches</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="display: inline-flex; align-items: center; gap: 6px; border: 1px solid #2c3b56; border-radius: 999px; padding: 4px 10px; color: #78a9ff; font-size: .7rem;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#78a9ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg>
+                {{ runningJobs }} job{{ jobsPlural }} running
+              </span>
+              <span style="border: 1px solid #2c3b56; border-radius: 999px; padding: 4px 10px; color: #9aacca; font-size: .7rem;">Updated 14s ago</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1.4fr) minmax(0, 1.1fr) minmax(0, .9fr) minmax(0, .8fr); gap: 0; padding: 0 6px;">
+            <sc-for list="{{ prHeads }}" as="h" hint-placeholder-count="5">
+              <div style="padding: 11px 10px; border-bottom: 1px solid #2c3b56; color: #9aacca; font-size: .66rem; text-transform: uppercase; letter-spacing: .06em;">{{ h.t }}</div>
+            </sc-for>
+            <sc-for list="{{ prCells }}" as="c" hint-placeholder-count="20">
+              <div style="padding: 12px 10px; border-bottom: 1px solid #223049; font-size: .78rem; color: {{ c.color }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <sc-if value="{{ c.isBadge }}" hint-placeholder-val="{{ true }}">
+                  <span style="display: inline-block; border-radius: 999px; padding: 3px 8px; font-size: .66rem; font-weight: 700; background: {{ c.bg }}; color: {{ c.fg }};">{{ c.text }}</span>
+                </sc-if>
+                <sc-if value="{{ c.isPlain }}" hint-placeholder-val="{{ true }}">
+                  {{ c.text }}
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <p style="margin: 14px 16px; font-size: .72rem; color: #6b7699;">This column is why expand exists — the table needs the full width to stay readable.</p>
+        </div>
+      </section>
+      </sc-if>
+
+      <!-- My Work -->
+      <sc-if value="{{ showWork }}" hint-placeholder-val="{{ true }}">
+      <section style="background: #171d35; border: 1px solid #29304b; border-radius: 16px; overflow: hidden; height: {{ colHeight }};">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 14px; border-bottom: 1px solid #232c4d;">
+          <div>
+            <p style="margin: 0; color: #8fa2ff; font-size: .68rem; font-weight: 800; letter-spacing: .14em;">MY WORK</p>
+            <h2 style="margin: 5px 0 0; font-size: 1.05rem; font-weight: 600; color: #eef2ff;">Release checklist</h2>
+          </div>
+          <button onClick="{{ collapse }}" style="display: inline-flex; align-items: center; gap: 6px; border: 1px solid #2f3960; background: #1b2444; color: #b8c0df; border-radius: 8px; padding: 6px 10px; font-size: .72rem; cursor: pointer;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v18"></path><path d="M16 9l-3 3 3 3"></path></svg>
+            Collapse
+          </button>
+        </div>
+        <div style="padding: 8px 22px 20px;">
+          <sc-for list="{{ work }}" as="w" hint-placeholder-count="4">
+            <div style="display: flex; align-items: center; gap: 11px; padding: 12px 0; border-bottom: 1px solid #232c4d;">
+              <span style="width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid {{ w.box }}; background: {{ w.fill }}; flex: 0 0 auto;"></span>
+              <span style="flex: 1 1 auto; font-size: .85rem; color: {{ w.color }};">{{ w.t }}</span>
+            </div>
+          </sc-for>
+          <p style="margin: 16px 0 0; font-size: .74rem; color: #6b7699;">Stored locally on this machine — never sent anywhere.</p>
+        </div>
+      </section>
+      </sc-if>
+
+    </main>
+  </div>
+
+  <!-- Avatar walking the window chrome: overlay layer, pointer-events none -->
+  <div style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none;">
+    <div style="position: absolute; left: 92px; top: 26px; width: {{ caineW }}px; height: 44px; image-rendering: pixelated;">
+      <img src="{{ caineFrame }}" width="{{ caineW }}" height="44" style="display: block; image-rendering: pixelated; filter: drop-shadow(0 0 6px {{ statusColorGlow }});">
+    </div>
+    <div style="position: absolute; left: 92px; top: 66px; width: {{ caineW }}px; height: 5px; border-radius: 50%; background: #000; opacity: .28; filter: blur(2px);"></div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"avatarStatus":{"editor":"enum","options":["idle","thinking","busy","needs_input"],"default":"needs_input","section":"Avatar"},"accent":{"editor":"color","options":["#94a6ff","#ff44dd","#63dc9a","#ff8844"],"default":"#94a6ff","section":"Theme"}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    // null = browse (three narrow columns); an id = that column owns the stage.
+    this.state = { focused: null };
+  }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#94a6ff';
+    const statusKey = this.props.avatarStatus ?? 'needs_input';
+    const STATUS = {
+      idle:        '#44ff88',
+      thinking:    '#ffdd44',
+      busy:        '#ff8844',
+      needs_input: '#ff44dd'
+    };
+    const statusColor = STATUS[statusKey] ?? STATUS.idle;
+
+    // Same ANIM_ROW mapping session_scanner.py/sprite_loader.py use for every
+    // program avatar: idle=0(idle), busy=1(run), thinking=2(sit), done/error/
+    // needs_input=3(stand). Generic so Claude (caine.png) and Cursor
+    // (bubble.png) share one lookup instead of each avatar hand-rolling its
+    // own frame logic.
+    const SPRITE_FRAME = {
+      claude: { idle: 'caine-idle.png',  busy: 'caine-run.png', thinking: 'caine-sit.png',
+                done: 'caine-stand.png', error: 'caine-stand.png', needs_input: 'caine-stand.png' },
+      // Cursor is a Stage-1 stub (always idle, no live sessions) -- only the
+      // idle frame is reachable, so only it ships in this canvas.
+      cursor: { idle: 'bubble-idle.png' }
+    };
+    // Native width per frame at 44px render height, feet already flush with
+    // the image bottom edge (cropped at extraction from the real sheets).
+    const SPRITE_W = {
+      'caine-idle.png': 29, 'caine-run.png': 28, 'caine-sit.png': 28, 'caine-stand.png': 30,
+      'bubble-idle.png': 44
+    };
+    const spriteFrame = (program, status) => {
+      const byStatus = SPRITE_FRAME[program] || SPRITE_FRAME.claude;
+      return byStatus[status] ?? byStatus.idle;
+    };
+
+    const caineFrame = spriteFrame('claude', statusKey);
+    const caineW = SPRITE_W[caineFrame];
+    const cursorFrame = spriteFrame('cursor', 'idle');
+    const cursorW = SPRITE_W[cursorFrame];
+    const statusColorGlow = statusColor + '99';
+
+    const focused = this.state.focused;
+    const browse = focused === null;
+
+    // Watched branches for the PR-approval gate: a new PR targeting one of
+    // these needs either your approval, or -- if already approved -- a
+    // successful job before it drops off this list.
+    const WATCHED_BRANCHES = ['main', 'develop'];
+
+    const sessionAttention = [
+      { dot: '#ff44dd', what: 'Permission to run Bash', where: 'zz_avatar_room', age: '12s', hasBadge: false }
+    ];
+
+    const prAttention = [
+      {
+        dot: '#f6c85f', what: 'PR #142 needs your approval', where: 'zz_avatar_room → develop', age: '4m',
+        hasBadge: true, badgeText: 'Review', badgeBg: '#f6c85f', badgeFg: '#36270a'
+      },
+      {
+        dot: '#ff7385', what: 'PR #139 failed CI after your approval', where: 'release-harness → main', age: '19m',
+        hasBadge: true, badgeText: 'Failed', badgeBg: '#ff7385', badgeFg: '#481621'
+      }
+    ];
+
+    const attentionItems = [...prAttention, ...sessionAttention];
+    const attentionCount = attentionItems.length;
+    const attentionTitle = attentionCount
+      ? `${attentionCount} item${attentionCount === 1 ? '' : 's'} need a decision`
+      : 'No items need a decision';
+    const attentionSubtitle = `Watching ${WATCHED_BRANCHES.join(', ')} · ${prAttention.length} PR(s), ${sessionAttention.length} session(s)`;
+
+    // Jobs running right now -- CI/build jobs, not agent sessions. Surfaced
+    // in the top bar and again on the Pull Requests panel, since that is
+    // where "why is this PR still red" gets answered.
+    const runningJobs = 3;
+    const jobsPlural = runningJobs === 1 ? '' : 's';
+
+
+    const COLUMNS = [
+      { id: 'attention',     label: 'Attention',  badge: String(attentionCount), wide: false },
+      { id: 'programs',      label: 'Programs',   badge: '',  wide: false },
+      { id: 'sessions',      label: 'Sessions',   badge: '3', wide: false },
+      { id: 'pull-requests', label: 'Pull reqs',  badge: '4', wide: true  },
+      { id: 'my-work',       label: 'My work',    badge: '',  wide: true  }
+    ];
+    const BROWSE = ['attention', 'programs', 'sessions'];
+    const onStage = browse ? BROWSE : [focused];
+
+    const focus = (id) => this.setState({ focused: id });
+    const toggle = (id) => this.setState({ focused: this.state.focused === id ? null : id });
+
+    const rails = COLUMNS
+      .filter((c) => onStage.indexOf(c.id) === -1)
+      .map((c) => ({
+        label: c.label,
+        badge: c.badge,
+        hasBadge: c.badge !== '',
+        badgeBg: c.id === 'attention' ? '#ff44dd' : '#2f3960',
+        badgeFg: c.id === 'attention' ? '#2b0722' : '#b8c0df',
+        isAttention: c.id === 'attention',
+        isPrograms:  c.id === 'programs',
+        isSessions:  c.id === 'sessions',
+        isPrs:       c.id === 'pull-requests',
+        isWork:      c.id === 'my-work',
+        pick: () => focus(c.id)
+      }));
+
+    const expandLabel = 'Expand';
+    const collapseLabel = 'Collapse';
+
+    return {
+      accent,
+      statusColor,
+      statusColorGlow,
+      caineFrame,
+      caineW,
+      cursorFrame,
+      cursorW,
+      runningJobs,
+      jobsPlural,
+      attentionTitle,
+      attentionSubtitle,
+      isNeedsInput: statusKey === 'needs_input',
+
+      // Browse lays three equal columns; focus gives the stage to one.
+      stageCols: browse ? 'repeat(3, minmax(0, 1fr))' : 'minmax(0, 1fr)',
+      colHeight: browse ? '740px' : '740px',
+
+      showAttention: browse || focused === 'attention',
+      showPrograms:  browse || focused === 'programs',
+      showSessions:  browse || focused === 'sessions',
+      showPrs:       focused === 'pull-requests',
+      showWork:      focused === 'my-work',
+
+      rails,
+      collapse: () => this.setState({ focused: null }),
+      toggleAttention: () => toggle('attention'),
+      togglePrograms:  () => toggle('programs'),
+      toggleSessions:  () => toggle('sessions'),
+      attentionToggleLabel: focused === 'attention' ? collapseLabel : expandLabel,
+      programsToggleLabel:  focused === 'programs'  ? collapseLabel : expandLabel,
+      sessionsToggleLabel:  focused === 'sessions'  ? collapseLabel : expandLabel,
+
+      attentionItems,
+      programs: [
+        { dot: statusColor, name: 'Claude',  meta: '3 sessions · Edit' },
+        { dot: '#3d4770',   name: 'Cursor',  meta: 'no sessions' }
+      ],
+      sessions: [
+        { dot: '#ff44dd', id: 'cff7b2d1', status: 'needs input', cwd: 'zz_avatar_room' },
+        { dot: '#ff8844', id: '869a18dc', status: 'busy',        cwd: 'RuneIsaRaido' },
+        { dot: '#44ff88', id: '281c5d56', status: 'idle',        cwd: 'Obsidian Vault' }
+      ],
+      prHeads: [
+        { t: 'Title' }, { t: 'Destination' }, { t: 'Author' }, { t: 'Status' }, { t: 'Updated' }
+      ],
+      prCells: [
+        { isPlain: true,  isBadge: false, text: 'Pipe sidecar stdin so scans survive',  color: '#a9c7ff' },
+        { isPlain: true,  isBadge: false, text: 'develop',                              color: '#9aacca' },
+        { isPlain: true,  isBadge: false, text: 'you',                                  color: '#e8efff' },
+        { isPlain: false, isBadge: true,  text: 'Review',  bg: '#f6c85f', fg: '#36270a', color: '#e8efff' },
+        { isPlain: true,  isBadge: false, text: '4m',                                   color: '#9aacca' },
+
+        { isPlain: true,  isBadge: false, text: 'Handle TimedOut on Windows UDP reads', color: '#a9c7ff' },
+        { isPlain: true,  isBadge: false, text: 'develop',                              color: '#9aacca' },
+        { isPlain: true,  isBadge: false, text: 'you',                                  color: '#e8efff' },
+        { isPlain: false, isBadge: true,  text: 'Open',    bg: '#5fe09b', fg: '#0f3221', color: '#e8efff' },
+        { isPlain: true,  isBadge: false, text: '22m',                                  color: '#9aacca' },
+
+        { isPlain: true,  isBadge: false, text: 'Add Tauri build job to CI',            color: '#a9c7ff' },
+        { isPlain: true,  isBadge: false, text: 'main',                                 color: '#9aacca' },
+        { isPlain: true,  isBadge: false, text: '[TEAMMATE]',                           color: '#e8efff' },
+        { isPlain: false, isBadge: true,  text: 'Failed',  bg: '#ff7385', fg: '#481621', color: '#e8efff' },
+        { isPlain: true,  isBadge: false, text: '1h',                                   color: '#9aacca' },
+
+        { isPlain: true,  isBadge: false, text: 'Move dashboards under public/',        color: '#a9c7ff' },
+        { isPlain: true,  isBadge: false, text: 'develop',                              color: '#9aacca' },
+        { isPlain: true,  isBadge: false, text: '[TEAMMATE]',                           color: '#e8efff' },
+        { isPlain: false, isBadge: true,  text: 'Open',    bg: '#5fe09b', fg: '#0f3221', color: '#e8efff' },
+        { isPlain: true,  isBadge: false, text: '3h',                                   color: '#9aacca' }
+      ],
+      work: [
+        { t: 'Cut release branch',            box: '#5fe09b', fill: '#5fe09b', color: '#7f8cb0' },
+        { t: 'Verify Tauri bundle on a clean box', box: '#3a4568', fill: 'transparent', color: '#eef2ff' },
+        { t: 'Update running.md for the port', box: '#3a4568', fill: 'transparent', color: '#eef2ff' },
+        { t: 'Tag and announce',               box: '#3a4568', fill: 'transparent', color: '#eef2ff' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

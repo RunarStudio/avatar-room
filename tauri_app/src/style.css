@@ -1,0 +1,63 @@
+:root { font-family: Inter, system-ui, sans-serif; color: #eef2ff; background: #111528; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 960px; min-height: 100vh; }
+
+.dashboard { display: flex; flex-direction: column; min-height: 100vh; padding: 24px clamp(24px, 4vw, 56px) 0; }
+header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex: 0 0 auto; }
+h1 { margin: 4px 0 0; font-size: clamp(1.5rem, 3vw, 2.3rem); letter-spacing: -.04em; }
+h2 { margin: 5px 0 0; font-size: 1.05rem; font-weight: 600; }
+p { color: #b8c0df; line-height: 1.55; margin: 0; }
+.muted { color: #8b96b8; }
+.small { font-size: .72rem; margin-top: 4px; }
+.mono { font-family: ui-monospace, Consolas, monospace; }
+.eyebrow { color: #8fa2ff; font-size: .68rem; font-weight: 800; letter-spacing: .14em; margin: 0; }
+
+.status { display: inline-flex; align-items: center; gap: 7px; background: #1a2543; border: 1px solid #293960; border-radius: 999px; padding: 7px 13px; font-size: .8rem; white-space: nowrap; }
+.status i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #63dc9a; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: 1px solid #29304b; background: #171d35; border-radius: 9px; color: #98a5ca; cursor: pointer; padding: 0; }
+.icon-btn:hover { color: #cdd7f5; border-color: #34406b; }
+
+.workspace { display: flex; flex: 1 1 auto; min-height: 0; margin-top: 24px; gap: 0; }
+
+/* Rail: collapsed columns, icon + label + optional count badge. */
+#rail { flex: 0 0 84px; display: flex; flex-direction: column; gap: 4px; padding: 4px 8px 12px 0; border-right: 1px solid #29304b; }
+#rail button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 11px 4px 9px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: #98a5ca; cursor: pointer; font: inherit; }
+#rail button:hover { color: #cdd7f5; background: #171d35; }
+.rail-label { font-size: .58rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; text-align: center; line-height: 1.25; }
+.rail-badge { position: absolute; top: 7px; right: 10px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: #2f3960; color: #b8c0df; font-size: .6rem; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.rail-badge-alert { background: #ff44dd; color: #2b0722; }
+
+/* Panels: #panels is the grid; each column is one grid item. Column count
+   (1 in focus, 3 in browse) is set from JS in selectColumn() -- the same
+   thing the design canvas computed as `stageCols`. */
+#panels { flex: 1 1 auto; min-width: 0; padding: 4px 0 24px 20px; display: grid; gap: 16px; }
+.panel { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.panel[hidden] { display: none; }
+article { background: #171d35; border: 1px solid #29304b; border-radius: 16px; padding: 20px 22px; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; flex: 1 1 auto; }
+.attention { background: linear-gradient(145deg, #212a50, #171d35); border-color: #2b3557; }
+
+/* Frame panels hand their whole area to the embedded page. */
+.panel-frame { padding-top: 0; }
+.dashboard-frame { flex: 1 1 auto; width: 100%; border: 1px solid #29304b; border-radius: 12px; background: #101521; }
+
+#avatar-canvas { display: block; width: 100%; max-width: 100%; height: auto; border-radius: 10px; background: #101527; }
+
+/* Attention rows */
+.attention-row { display: flex; align-items: flex-start; gap: 11px; padding: 11px 0; border-bottom: 1px solid #232c4d; }
+.attention-row:last-child { border-bottom: none; }
+.attention-body { flex: 1 1 auto; min-width: 0; }
+.attention-what-line { display: flex; align-items: center; gap: 8px; }
+.attention-what { font-size: .86rem; color: #eef2ff; font-weight: 550; }
+.attention-where { font-size: .74rem; color: #8b96b8; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attention-age { flex: 0 0 auto; font-size: .72rem; color: #7f8cb0; white-space: nowrap; }
+.dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; }
+.pill-badge { flex: 0 0 auto; border-radius: 999px; padding: 2px 8px; font-size: .64rem; font-weight: 700; }
+
+/* Programs */
+.program-row { display: flex; align-items: center; gap: 9px; padding: 6px 0; }
+.program-name { flex: 1 1 auto; font-size: .84rem; color: #eef2ff; }
+.program-meta { font-size: .72rem; color: #8b96b8; }
+
+/* Sessions */
+.session { font-size: .82rem; color: #b8c0df; }
+.session.needs-input { color: #ff8fe4; }

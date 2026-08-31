@@ -1,0 +1,120 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #111528; color: #eef2ff; }
+    a { color: #a9c7ff; text-decoration: none; }
+    a:hover { color: #cdd7f5; text-decoration: underline; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div style="position: relative; width: 960px; height: 640px; display: flex; flex-direction: column; background: #111528; overflow: hidden;">
+
+  <header style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-bottom: 1px solid #29304b; flex: 0 0 auto;">
+    <div style="display: flex; align-items: baseline; gap: 11px; min-width: 0;">
+      <p style="margin: 0; color: #8fa2ff; font-size: .64rem; font-weight: 800; letter-spacing: .14em; white-space: nowrap;">AI AVATAR ROOM</p>
+      <h1 style="margin: 0; font-size: .95rem; font-weight: 600; letter-spacing: -.02em; color: #eef2ff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Release manager</h1>
+    </div>
+    <span style="display: inline-flex; align-items: center; gap: 6px; background: #1a2543; border: 1px solid #293960; border-radius: 999px; padding: 5px 11px; font-size: .72rem; color: #b8c0df; white-space: nowrap;">
+      <i style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #63dc9a;"></i>
+      2 programs
+    </span>
+  </header>
+
+  <div style="display: flex; flex: 1 1 auto; min-height: 0;">
+
+    <!-- At 960 the rail carries three items: Sessions has dropped off the stage -->
+    <nav style="flex: 0 0 76px; display: flex; flex-direction: column; gap: 3px; padding: 10px 7px; border-right: 1px solid #29304b;">
+
+      <button style="display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 3px 8px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #98a5ca; cursor: pointer; position: relative;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M6 9l3 3-3 3"></path><path d="M12 15h5"></path></svg>
+        <span style="font-size: .55rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #7f8cb0;">Sessions</span>
+        <span style="position: absolute; top: 6px; right: 10px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: #2f3960; color: #b8c0df; font-size: .56rem; font-weight: 800; display: flex; align-items: center; justify-content: center;">3</span>
+      </button>
+
+      <button style="display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 3px 8px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #98a5ca; cursor: pointer; position: relative;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M6 9v6"></path><circle cx="18" cy="18" r="3"></circle><path d="M18 15V9a4 4 0 0 0-4-4h-3"></path><path d="M13 8l-2-3 2-3"></path></svg>
+        <span style="font-size: .55rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #7f8cb0;">Pull reqs</span>
+        <span style="position: absolute; top: 6px; right: 10px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: #2f3960; color: #b8c0df; font-size: .56rem; font-weight: 800; display: flex; align-items: center; justify-content: center;">4</span>
+      </button>
+
+      <button style="display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 3px 8px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #98a5ca; cursor: pointer;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+        <span style="font-size: .55rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #7f8cb0;">My work</span>
+      </button>
+    </nav>
+
+    <main style="flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px 14px 14px; align-items: start;">
+
+      <section style="background: linear-gradient(145deg, #212a50, #171d35); border: 1px solid #29304b; border-radius: 14px; overflow: hidden; height: 486px;">
+        <div style="padding: 14px 16px 11px; border-bottom: 1px solid #2b3557;">
+          <p style="margin: 0; color: #8fa2ff; font-size: .62rem; font-weight: 800; letter-spacing: .14em;">ATTENTION QUEUE</p>
+          <h2 style="margin: 4px 0 0; font-size: .92rem; font-weight: 600; color: #eef2ff;">2 need a decision</h2>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 9px; padding: 12px 16px; border-bottom: 1px solid #232c4d;">
+          <span style="flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; background: #ff44dd;"></span>
+          <div style="flex: 1 1 auto; min-width: 0;">
+            <p style="margin: 0; font-size: .8rem; color: #eef2ff;">Permission to run Bash</p>
+            <p style="margin: 2px 0 0; font-size: .69rem; color: #8b96b8; font-family: ui-monospace, Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">zz_avatar_room</p>
+          </div>
+          <span style="flex: 0 0 auto; font-size: .68rem; color: #7f8cb0;">12s</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 9px; padding: 12px 16px; border-bottom: 1px solid #232c4d;">
+          <span style="flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; background: #ff44dd;"></span>
+          <div style="flex: 1 1 auto; min-width: 0;">
+            <p style="margin: 0; font-size: .8rem; color: #eef2ff;">Permission to edit build.yml</p>
+            <p style="margin: 2px 0 0; font-size: .69rem; color: #8b96b8; font-family: ui-monospace, Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">release-harness</p>
+          </div>
+          <span style="flex: 0 0 auto; font-size: .68rem; color: #7f8cb0;">3m</span>
+        </div>
+      </section>
+
+      <section style="background: #171d35; border: 1px solid #29304b; border-radius: 14px; overflow: hidden; height: 486px;">
+        <div style="padding: 14px 16px 11px; border-bottom: 1px solid #232c4d;">
+          <p style="margin: 0; color: #8fa2ff; font-size: .62rem; font-weight: 800; letter-spacing: .14em;">PROGRAMS</p>
+          <h2 style="margin: 4px 0 0; font-size: .92rem; font-weight: 600; color: #eef2ff;">Claude · Cursor</h2>
+        </div>
+        <div style="padding: 12px 16px 16px;">
+          <div style="position: relative; height: 104px; border-radius: 9px; background: #101527; border: 1px solid #232c4d; overflow: hidden;">
+            <div style="position: absolute; left: 0; right: 0; bottom: 28px; border-top: 1px dashed #2b3557;"></div>
+            <div style="position: absolute; left: 18px; bottom: 28px; width: 38px; height: 38px; border-radius: 50%; background: #ff44dd; opacity: 0.18; filter: blur(1px);"></div>
+            <div style="position: absolute; left: 24px; bottom: 28px; width: 30px; height: 40px; image-rendering: pixelated;">
+              <img src="caine-stand.png" width="30" height="40" style="display: block; image-rendering: pixelated; filter: drop-shadow(0 0 5px #ff44dd99);">
+            </div>
+            <div style="position: absolute; left: 33px; bottom: 62px; color: #ff44dd; font-family: ui-monospace, Consolas, monospace; font-size: .95rem; font-weight: 800;">!</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 9px; margin-top: 13px;">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: #ff44dd;"></span>
+            <span style="flex: 1 1 auto; font-size: .79rem; color: #eef2ff;">Claude</span>
+            <span style="font-size: .69rem; color: #8b96b8; font-family: ui-monospace, Consolas, monospace;">3 sessions</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 9px; margin-top: 8px;">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: #3d4770;"></span>
+            <span style="flex: 1 1 auto; font-size: .79rem; color: #eef2ff;">Cursor</span>
+            <span style="font-size: .69rem; color: #8b96b8; font-family: ui-monospace, Consolas, monospace;">none</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer style="flex: 0 0 auto; display: flex; align-items: center; gap: 18px; padding: 9px 18px; border-top: 1px solid #29304b;">
+    <span style="font-size: .64rem; font-weight: 800; letter-spacing: .12em; color: #8fa2ff;">BROWSE REFLOW</span>
+    <span style="font-size: .7rem; color: #8b96b8; font-family: ui-monospace, Consolas, monospace;">&#8805;1280 &rarr; 3 columns</span>
+    <span style="font-size: .7rem; color: #eef2ff; font-family: ui-monospace, Consolas, monospace;">960&#8211;1279 &rarr; 2 columns, third joins the rail</span>
+    <span style="font-size: .7rem; color: #8b96b8; font-family: ui-monospace, Consolas, monospace;">&lt;960 &rarr; 1 column</span>
+    <span style="margin-left: auto; font-size: .68rem; color: #6b7699;">Focus mode is always 1 column, at any width</span>
+  </footer>
+
+</div>
+</x-dc>
+</body>
+</html>

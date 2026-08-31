@@ -14,6 +14,9 @@ import time
 from dataclasses import dataclass, field
 
 
+NOTIFICATION_ANTI_FLAP_S = 20.0
+
+
 @dataclass
 class _Entry:
     needs_input:    bool  = False
@@ -22,6 +25,7 @@ class _Entry:
     program:        str   = ""
     last_tool:      str   = ""
     turn_ended_at:  float = 0.0
+    last_notified_at: float = 0.0
 
 
 @dataclass
@@ -47,16 +51,21 @@ class NotificationHub:
         with self._lock:
             entry = self._state.setdefault(session_id, _Entry())
             was_needing = entry.needs_input
+            now = time.time()
             entry.needs_input = True
-            entry.since = entry.since or time.time()
+            entry.since = entry.since or now
             entry.message = message
             entry.program = program
-            if not was_needing:
+            # Preserve every state transition for the avatar/UI, but avoid a
+            # clear → needs-input hook flap repeatedly firing a toast while
+            # the user is already being alerted about this same session.
+            if not was_needing and (now - entry.last_notified_at) >= NOTIFICATION_ANTI_FLAP_S:
                 self._pending.append(NotificationEvent(
                     program=program, session_id=session_id, kind="needs_input",
                     title=f"{program.capitalize()} needs your input",
                     message=message or "Waiting for your response.",
                 ))
+                entry.last_notified_at = now
 
     def clear(self, session_id: str) -> None:
         with self._lock:
